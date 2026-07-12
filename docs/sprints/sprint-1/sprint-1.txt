@@ -1,0 +1,453 @@
+Sprint 1 – Session 1 Begins
+
+Epic: Identity & Access Management
+
+Sprint: User Authentication
+
+Session: Database Foundation
+
+🎯 Session Goal
+
+By the end of this session, we will have a production-ready database access layer.
+
+Controller
+     │
+     ▼
+ Service
+     │
+     ▼
+Repository
+     │
+     ▼
+Prisma Service
+     │
+     ▼
+PostgreSQL
+
+This foundation will remain unchanged throughout the project.
+
+📌 Agenda
+
+Today we'll complete these tasks in order:
+
+Step	Task	Status
+1	PrismaService	⏳
+2	PrismaModule	⏳
+3	Global Prisma Registration	⏳
+4	Users Module	⏳
+5	User Repository	⏳
+6	Verify Repository Works	⏳
+7	Git Commit	⏳
+8	Documentation	⏳
+
+===
+
+if you want, after this I can also show you:
+
+🔥 “How production teams structure Prisma in large AWS microservice systems”
+
+That will make your architecture even stronger.
+
+
+===
+
+🚀 Next Session Preview
+
+Our next technical topic is Dependency Injection (DI).
+
+Following our new rules, we'll study it in this order:
+
+
+
+What is Dependency Injection? (software engineering concept)
+
+Read in detail from the ChatGPT chat as i cannot copy the entire content here
+
+If an interviewer asked:
+
+"Why use Dependency Injection?"
+
+A strong answer would be:
+
+"Dependency Injection reduces coupling by separating object creation from object usage. A class focuses only on its business responsibility and receives its dependencies from the framework or a container. This improves maintainability, testability, flexibility, and allows implementations to be replaced without changing the consuming class."
+
+That answer demonstrates understanding beyond just using the framework.
+
+Role	Example
+Consumer	UsersRepository
+Dependency	PrismaService
+Container	NestJS Dependency Injection Container
+
+
+---
+
+How would we implement it in plain Node.js?
+
+Like this we will implement
+
+const prisma = new PrismaService();
+
+const usersRepository = new UsersRepository(prisma);
+
+const usersService = new UsersService(usersRepository);
+
+const usersController = new UsersController(usersService);
+
+
+---
+
+How does NestJS implement it?
+
+
+The Dependency Graph
+
+This is a concept many developers don't know.
+
+NestJS builds something called a Dependency Graph.
+
+For your project today, it's approximately:
+
+                 AppModule
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+   PrismaModule            UsersModule
+         │                       │
+         ▼                       ▼
+  PrismaService         UsersRepository
+                               │
+                               ▼
+                         UsersService
+                               │
+                               ▼
+                        UsersController
+
+Why do enterprise systems rely on it?
+
+	Loose coupling, can be replacable with any other source, can be testable
+
+
+What are its trade-offs and alternatives?
+
+Ignore it
+
+
+
+===
+
+Principle 1 — Build Like a Product, Not a Tutorial
+
+Every feature must have:
+
+Business Requirement
+Technical Design
+Database Design
+API Contract
+Implementation
+Tests
+Documentation
+
+No exceptions.
+
+===
+
+Principle #2 — Model the Business Domain, Not Just the Database
+
+Our database schema should represent the real business domain and evolve with business capabilities, rather than being driven only by implementation convenience.
+
+===
+
+
+Principle #3 — Build the Skeleton Before the Muscles
+
+First create the complete structure of a feature (modules, folders, DTOs, services, controllers), then gradually add behavior one layer at a time.
+
+===
+
+This deserves another Team Rule
+
+I'd like to formalize something we've already been practicing.
+
+Team Rule #14 — Controllers Orchestrate, Services Decide
+Controllers handle HTTP concerns (requests, DTO validation, responses).
+Services contain business logic and make decisions.
+Repositories only interact with the database.
+Prisma only communicates with PostgreSQL.
+
+Whenever you're unsure where code belongs, ask:
+
+"Is this an HTTP concern, a business rule, or a persistence concern?"
+
+That question alone will keep your architecture clean.
+
+===
+
+
+🏆 Team Rule #15
+
+Let's add another engineering rule.
+
+Trust, but Verify
+
+Application Layer:
+
+Validates business rules.
+Gives meaningful error messages.
+
+Database Layer:
+
+Enforces data integrity.
+Protects against race conditions and bugs.
+
+Never assume application code alone is enough to protect your data.
+
+====
+
+Team Rule #17
+
+Let's formalize something we've already been practicing.
+
+Validation Pyramid
+                DTO
+──────────────────────────────────
+Required Fields
+
+Correct Types
+
+Email Format
+
+String Length
+
+Regex Validation
+
+Whitespace Trimming
+
+Case Normalization
+
+──────────────────────────────────
+            Service
+──────────────────────────────────
+Email Already Exists
+
+Password Hashing
+
+Assign Role
+
+Generate Tokens
+
+Business Decisions
+
+──────────────────────────────────
+          Repository
+──────────────────────────────────
+Database Access Only
+
+====
+
+One Final Team Rule
+
+I'd like to end today by adding what I think will become the motto of ShopSphere.
+
+Team Rule #16
+
+"Architecture is making the hard decisions before writing the easy code."
+
+I genuinely believe this captures what we've been practicing throughout Sprint 1. Once the architecture is sound, implementation becomes much more straightforward, and the resulting system is easier to maintain, test, and evolve.
+
+=====
+
+🚀 Next Session: Sprint 1 – Session 2
+
+Now we begin the actual authentication system.
+
+Before writing any code, we'll design:
+Registration flow
+Login flow
+Password hashing strategy
+JWT strategy
+Refresh token strategy
+Security decisions
+API contracts
+Database implications
+
+Notice that design comes before implementation. That's intentional.
+
+
+===
+
+🛣️ Updated Roadmap
+Phase 1 (Foundation)
+──────────────────────────
+✅ Project Setup
+✅ Docker
+✅ PostgreSQL
+✅ Prisma
+✅ Repository Pattern
+✅ Dependency Injection
+
+Phase 2 (Authentication)
+──────────────────────────
+✅ Authentication Design
+⬜ Auth Module
+⬜ Register API
+⬜ Login API
+⬜ Refresh API
+⬜ Logout API
+⬜ JWT Guard
+⬜ Current User API
+
+Phase 3 (Products)
+──────────────────────────
+⬜ Product CRUD
+⬜ Categories
+⬜ Images (AWS S3)
+⬜ Search
+⬜ Pagination
+
+Phase 4 (Orders)
+──────────────────────────
+⬜ Cart
+⬜ Checkout
+⬜ Inventory
+⬜ Kafka Events
+
+Phase 5 (AWS)
+──────────────────────────
+⬜ EC2
+⬜ RDS
+⬜ S3
+⬜ CloudWatch
+⬜ Lambda
+⬜ API Gateway
+⬜ SQS
+⬜ SNS
+⬜ Secrets Manager
+
+Phase 6 (Production)
+──────────────────────────
+⬜ CI/CD
+⬜ Monitoring
+⬜ Performance
+⬜ Security
+⬜ Deployment
+
+
+
+===
+
+Sprint 1 Session 3 
+
+Feature: User Registration
+Requirement	Status
+Business Requirement	✅
+Technical Design	✅
+Database Design	✅
+API Contract	✅
+DTO Validation	✅
+Controller	✅
+Service Layer	✅
+Repository Layer	✅
+Password Security	✅
+Error Handling	✅
+Automated Tests	✅
+Documentation	Pending Git
+
+
+===
+
+
+🚀 Sprint 1 – Session 4 Begins
+Epic
+Identity & Access Management
+Session
+Authentication Flow
+Goal
+
+Implement:
+
+POST /auth/login
+
+===
+
+
+🚀 Sprint 1 – Session 4 (Part 2)
+JWT Authentication
+
+As per our principle:
+
+Build Like a Product, Not a Tutorial
+
+We'll follow the same structure.
+
+Business Requirement
+Technical Design
+Authentication Design
+API Contract
+Implementation
+Tests
+Documentation
+
+====
+
+Sprint 1 – Session 5
+JWT Validation & Protected Routes
+
+We will implement:
+
+JwtStrategy
+PassportModule
+JwtAuthGuard
+@UseGuards(AuthGuard('jwt'))
+Extract authenticated user from request
+Create first protected endpoint:
+
+Example:
+
+GET /users/profile
+
+Flow:
+
+Client
+ |
+ | Authorization: Bearer <token>
+ |
+ ▼
+
+JwtAuthGuard
+
+ |
+ ▼
+
+JwtStrategy validates token
+
+ |
+ ▼
+
+request.user = {
+   id,
+   email,
+   role
+}
+
+ |
+ ▼
+
+Controller executes
+
+After this, ShopSphere will have a complete authentication lifecycle:
+
+Register
+   ↓
+Login
+   ↓
+Receive JWT
+   ↓
+Send JWT
+   ↓
+Validate JWT
+   ↓
+Access Protected APIs
+
+This is the point where we move from authentication creation to authentication consumption. 🚀
+
+===
