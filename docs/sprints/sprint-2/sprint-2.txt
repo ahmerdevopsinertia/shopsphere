@@ -1,0 +1,106 @@
+Sprint 2 Roadmap
+
+We will follow the same product approach.
+
+Sprint 2 — Session 1
+Architecture + Database Design
+
+Tasks:
+
+Create ADR
+docs/architecture/adr/
+
+ADR-007-user-profile-separation.md
+
+Decision:
+
+User authentication information and personal profile information will be stored separately using a one-to-one relationship.
+
+Update Prisma Schema
+
+Add:
+
+model UserProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+
+  firstName String
+  lastName  String
+
+  phone     String?
+  avatar    String?
+
+  user User @relation(
+    fields: [userId],
+    references: [id]
+  )
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+And update User:
+
+model User {
+
+  ...
+
+  profile UserProfile?
+}
+Migration
+
+Generate:
+
+npx prisma migrate dev --name add_user_profile
+
+Verify:
+
+npx prisma studio
+Sprint 2 — Session 2
+Profile Module
+
+Create:
+
+src/modules/profile
+
+profile.module.ts
+profile.controller.ts
+profile.service.ts
+profile.repository.ts
+Sprint 2 — Session 3
+Profile APIs
+
+Implement:
+
+Create Profile
+POST /users/profile
+
+Protected:
+
+@UseGuards(JwtAuthGuard)
+Get Profile
+GET /users/profile
+
+Using:
+
+@CurrentUser()
+Update Profile
+PATCH /users/profile
+Sprint 2 — Session 4
+
+Testing:
+
+Create profile
+Duplicate profile
+Unauthorized access
+Update profile
+Validation failures
+Sprint 2 — Session 5
+
+Closure:
+
+ADR documentation
+API documentation
+Build verification
+Git commit
+Git tag

@@ -14,6 +14,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
+import { ProfileModule } from './modules/profile/profile.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { ConfigModule } from '@nestjs/config';
     UsersModule,
     ProductsModule,
     OrdersModule,
-    CategoriesModule
+    CategoriesModule,
+    ProfileModule,
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [AppService, UsersService, ProductsService, JwtService],
