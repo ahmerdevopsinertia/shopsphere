@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ProfileRepository } from './profile.repository';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -15,6 +15,19 @@ export class ProfileService {
 	constructor(private readonly profileRepository: ProfileRepository) { }
 
 	async create(user: JwtPayload, dto: CreateProfileDto): Promise<ProfileResponseDto> {
+
+		// Check existing profile
+		const existingProfile = await this.profileRepository.findByUserId(
+			user.sub,
+		);
+
+		if (existingProfile) {
+			throw new ConflictException(
+				'Profile is already registered.',
+			);
+		}
+
+		// Create profile
 		const profile = await this.profileRepository.create({
 			userId: user.sub,
 			firstName: dto.firstName,
