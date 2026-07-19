@@ -31,9 +31,27 @@ export class ProductsRepository {
 		});
 	}
 
-	async findAll(skip: number, take: number) {
+	async findAll(skip: number, take: number, search: string) {
 
 		return this.prisma.product.findMany({
+			where: search
+				? {
+					OR: [
+						{
+							name: {
+								contains: search,
+								mode: 'insensitive',
+							},
+						},
+						{
+							sku: {
+								contains: search,
+								mode: 'insensitive',
+							},
+						},
+					],
+				}
+				: undefined,
 			skip,
 			take,
 			include: {
@@ -45,7 +63,26 @@ export class ProductsRepository {
 		});
 	}
 
-	async count() {
-		return this.prisma.product.count();
+	async count(search: string) {
+		return this.prisma.product.count({
+			where: search
+				? {
+					OR: [
+						{
+							name: {
+								contains: search,
+								mode: 'insensitive',
+							},
+						},
+						{
+							sku: {
+								contains: search,
+								mode: 'insensitive',
+							},
+						},
+					],
+				}
+				: undefined,
+		});
 	}
 }

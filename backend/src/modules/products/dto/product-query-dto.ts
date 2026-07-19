@@ -14,4 +14,7 @@ export class ProductQueryDto {
 	@IsPositive()
 	@Max(50)
 	limit?: number = 10;
+
+	@IsOptional()
+	search?: string;
 }

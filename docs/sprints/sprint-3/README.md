@@ -13,7 +13,7 @@ pagination, authentication, and role-based authorization.
 
 - Create Product API
 - Get Product By ID API
-- Get Products API with pagination
+- Get Products API with pagination and Search capability
 - SKU uniqueness validation
 - Category existence validation
 - Decimal price handling

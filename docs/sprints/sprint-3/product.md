@@ -17,7 +17,7 @@ GET /products/:id
 
 ### Get Products
 
-GET /products?page=1&limit=10
+GET /products?page=1&limit=10&search=iphone
 
 
 ## Business Rules

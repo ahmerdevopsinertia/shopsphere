@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Search, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
@@ -29,6 +29,6 @@ export class ProductsController {
 
 	@Get()
 	findAll(@Query() query: ProductQueryDto): Promise<ProductResponseDto> {
-		return this.productService.findAll(query.page ?? 1, query.limit ?? 10);
+		return this.productService.findAll(query.page ?? 1, query.limit ?? 10, query.search ?? '');
 	}
 }
