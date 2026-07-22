@@ -1,0 +1,174 @@
+🚀 Sprint 4 — Inventory Management
+
+This should come next because inventory is a core business feature, not just an infrastructure improvement.
+
+We'll cover topics like:
+
+Inventory entity
+Product stock
+Available quantity
+Reserved quantity
+Stock movement
+In-stock / Out-of-stock logic
+Inventory APIs
+Business rules
+
+By the end of Sprint 4, ShopSphere will have a complete catalog with inventory management.
+
+🚀 Sprint 5 — Orders
+
+Once inventory exists, we can build:
+
+Customer
+     │
+     ▼
+Create Order
+     │
+     ▼
+Reserve Inventory
+     │
+     ▼
+Payment
+     │
+     ▼
+Confirm Order
+
+Without inventory, order management isn't realistic because there is no stock to reserve or deduct.
+
+🚀 Sprint 6 — Production Hardening
+
+This is the ideal time to focus on architecture and operational concerns, because the application has enough business functionality to justify them.
+
+Topics include:
+
+1. Global Exception Filter
+
+Instead of returning different error formats from different parts of the application, every error will have a consistent structure.
+
+Example:
+
+{
+  "success": false,
+  "statusCode": 404,
+  "message": "Product not found.",
+  "timestamp": "2026-07-19T15:30:00Z",
+  "path": "/products/123"
+}
+2. API Response Wrapper
+
+Make successful responses consistent too.
+
+Example:
+
+{
+  "success": true,
+  "data": {
+    "id": "...",
+    "name": "iPhone 17 Case"
+  }
+}
+
+instead of returning raw objects from some endpoints and arrays from others.
+
+3. Logging
+
+Replace ad hoc console.log() calls with NestJS's Logger.
+
+Later we can integrate libraries like Pino or Winston for structured logging.
+
+4. Configuration Improvements
+
+Centralize configuration with typed config services:
+
+JWT
+Database
+Application
+CORS
+Environment variables
+
+This avoids scattered process.env usage.
+
+5. Validation & Security
+
+We'll also review:
+
+Helmet
+Rate limiting
+CORS configuration
+Input sanitization
+Security headers
+6. Swagger/OpenAPI
+
+Generate professional API documentation directly from your code.
+
+7. Docker
+
+Containerize the application for consistent deployments.
+
+8. CI/CD
+
+Build and deploy automatically using GitHub Actions (or another CI/CD system).
+
+===
+
+🚀 Next Session
+Sprint 4 — Session 5
+
+Now we implement the API that warehouse staff (or an admin) will use most often:
+
+PATCH /inventory/:productId
+
+This endpoint supports scenarios like:
+
+New stock arrives
+Stock correction
+Manual inventory adjustment
+
+Example:
+
+Current inventory:
+
+{
+    "quantity":100,
+    "reserved":0
+}
+
+Request:
+
+PATCH /inventory/{productId}
+{
+    "quantity":150
+}
+
+Response:
+
+{
+    "quantity":150,
+    "reserved":0,
+    "available":150
+}
+
+Recommendation
+
+I recommend Option A for Sprint 4.
+
+Why?
+
+Because we're building an Inventory Management module, not yet an Inventory Movement (Ledger) module.
+
+Warehouse operators often perform a stock count and then update the system to reflect the actual quantity. Setting the exact quantity is the simpler and more appropriate operation at this stage.
+
+Later, when we introduce:
+
+Purchase Orders
+Customer Orders
+Returns
+Stock Transfers
+Audit Logs
+
+we'll evolve this into a proper stock movement system where adjustments are recorded as transactions rather than simply replacing a value.
+
+That progression keeps our design realistic and avoids over-engineering too early.
+
+===
+

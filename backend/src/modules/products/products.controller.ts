@@ -18,7 +18,7 @@ export class ProductsController {
 		RolesGuard,
 	)
 	@Roles('ADMIN')
-	createProduct(@Body() dto: CreateProductDto): Promise<ProductResponseDto> {
+	create(@Body() dto: CreateProductDto): Promise<ProductResponseDto> {
 		return this.productService.create(dto);
 	}
 

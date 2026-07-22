@@ -27,6 +27,7 @@ export class ProductsRepository {
 			},
 			include: {
 				category: true,
+				inventory: true,
 			},
 		});
 	}
@@ -55,7 +56,8 @@ export class ProductsRepository {
 			skip,
 			take,
 			include: {
-				category: true
+				category: true,
+				inventory: true
 			},
 			orderBy: {
 				createdAt: 'desc'

@@ -15,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { ProfileModule } from './modules/profile/profile.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ProfileModule } from './modules/profile/profile.module';
     OrdersModule,
     CategoriesModule,
     ProfileModule,
+    InventoryModule,
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [AppService, UsersService, ProductsService, JwtService],

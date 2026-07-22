@@ -51,7 +51,16 @@ export class ProductsService {
 			price: Number(product.price),
 			sku: product.sku,
 			description: product.description ?? undefined,
-			categoryName: product.category.name
+			categoryName: product.category.name,
+			inventory: product.inventory
+				? {
+					quantity: product.inventory.quantity,
+					reserved: product.inventory.reserved,
+					available:
+						product.inventory.quantity -
+						product.inventory.reserved,
+				}
+				: null
 		};
 	}
 
@@ -71,7 +80,16 @@ export class ProductsService {
 					price: Number(product.price),
 					sku: product.sku,
 					description: product.description ?? undefined,
-					categoryName: product.category.name
+					categoryName: product.category.name,
+					inventory: product.inventory
+						? {
+							quantity: product.inventory.quantity,
+							reserved: product.inventory.reserved,
+							available:
+								product.inventory.quantity -
+								product.inventory.reserved,
+						}
+						: null
 				}
 			}),
 			meta: {
