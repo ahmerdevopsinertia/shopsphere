@@ -33,7 +33,6 @@ export class ProductsRepository {
 	}
 
 	async findAll(skip: number, take: number, search: string) {
-
 		return this.prisma.product.findMany({
 			where: search
 				? {

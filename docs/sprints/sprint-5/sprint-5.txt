@@ -1,0 +1,1400 @@
+🚀 Sprint 5 – Order Management
+
+This is where ShopSphere becomes a real e-commerce application.
+
+Unlike previous sprints, this one combines multiple modules in a single business workflow.
+
+User
+ │
+ ▼
+Product
+ │
+ ▼
+Inventory
+ │
+ ▼
+Order
+ │
+ ▼
+Order Items
+ │
+ ▼
+Reserve Stock
+ │
+ ▼
+Checkout (later)
+Sprint 5 Roadmap
+Session 1
+Database Design
+
+We'll design:
+
+Order
+
+OrderItem
+
+OrderStatus
+Session 2
+
+Create Order API
+
+POST /orders
+Session 3
+
+Get Orders
+
+GET /orders
+
+GET /orders/:id
+Session 4
+
+Inventory Reservation
+
+This is where:
+
+reserved += quantity
+
+instead of
+
+quantity -= quantity
+Session 5
+
+Transactions
+
+We'll use:
+
+prisma.$transaction(...)
+
+for the first time.
+
+This is one of the biggest learning milestones in the project.
+
+Session 6
+
+Business Rules
+
+Cannot buy inactive products
+Cannot buy out-of-stock products
+Cannot exceed available stock
+Quantity validation
+Duplicate product handling
+Inventory reservation
+Session 7
+
+Documentation
+
+Git
+
+Build
+
+Sprint Closure
+
+===
+
+First Architectural Decision
+
+This is an important one.
+
+Option A — Order + Order Items (Recommended)
+Order
+
+id
+
+userId
+
+status
+
+totalAmount
+
+createdAt
+
+-------------------
+
+OrderItem
+
+id
+
+orderId
+
+productId
+
+quantity
+
+price
+
+Example:
+
+Order
+
+Order #1001
+
+contains
+
+iPhone Case
+
+Qty 2
+
+39 AED
+
+and
+
+Screen Protector
+
+Qty 1
+
+19 AED
+
+This is how virtually every modern e-commerce platform models orders.
+
+Option B — Single Table
+Order
+
+productId
+
+quantity
+
+price
+
+This only allows one product per order.
+
+Not suitable for a shopping cart.
+
+Recommendation
+
+We should continue with Option A.
+
+It's scalable and supports:
+
+Multiple products per order
+Discounts
+Coupons
+Shipping
+Partial refunds
+Returns
+
+without redesigning the database later.
+
+Before Writing the Schema
+
+One more design decision.
+
+Order Status
+
+I recommend we define it now rather than adding values later.
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+Even though we'll initially use only PENDING, having the complete lifecycle from the start keeps the schema stable and avoids future enum migrations.
+
+Why onDelete: Restrict?
+
+Orders are business records.
+
+If a user somehow becomes inactive or is removed from the system, their historical orders should remain. Restricting deletion prevents accidental loss of order history.
+
+===
+
+Why totalAmount on Order?
+
+Even though we can calculate the total from the items, we store it because:
+
+Faster queries
+Simpler reporting
+Stable order totals even if products change later
+
+Example:
+
+2 × 39 = 78
+1 × 19 = 19
+
+Total = 97
+
+We save:
+
+totalAmount = 97
+
+rather than recalculating every time.
+
+
+====
+
+
+Important architectural decision:
+
+Creating an order will involve:
+
+Check products exist
+Check inventory availability
+Calculate total
+Create Order
+Create OrderItems
+Reserve inventory
+
+These are multiple database operations.
+
+Therefore, unlike previous sprints, we cannot simply do:
+
+await createOrder()
+
+await updateInventory()
+
+because this can happen:
+
+Order created ✅
+
+Inventory update fails ❌
+
+Now we have corrupted data.
+
+So the final implementation will use:
+
+prisma.$transaction()
+
+Example:
+
+await prisma.$transaction(async(tx)=>{
+
+    create order
+
+    create order items
+
+    reserve inventory
+
+});
+
+Either everything succeeds:
+
+Order ✅
+Items ✅
+Inventory Reserved ✅
+
+or everything rolls back:
+
+Order ❌
+Items ❌
+Inventory ❌
+
+
+===
+
+🚀 Sprint 5 — Session 3
+Design the Order Creation Workflow
+
+Before writing code, let's design the complete business flow.
+
+Client
+
+   │
+
+POST /orders
+
+   │
+
+OrdersController
+
+   │
+
+OrdersService
+
+   │
+
+────────────────────────────────────────
+
+1. Validate request
+
+2. Validate products
+
+3. Validate inventory
+
+4. Calculate total
+
+5. Start transaction
+
+6. Create Order
+
+7. Create Order Items
+
+8. Reserve Inventory
+
+9. Commit transaction
+
+────────────────────────────────────────
+
+Return Order Response
+
+Notice that Steps 6–8 must happen inside one transaction.
+
+Step 1 — Dependencies
+
+Unlike previous modules, Orders depends on several repositories.
+
+OrdersService
+
+├── OrdersRepository
+├── ProductsRepository
+├── InventoryRepository
+
+Question: Should OrdersService call ProductsService?
+
+❌ No
+
+Service → Service dependencies quickly become tangled.
+
+We continue the pattern we've established:
+
+OrdersService
+     ↓
+ProductsRepository
+
+OrdersService
+     ↓
+InventoryRepository
+
+This keeps each service focused on its own business workflow.
+
+Step 2 — Business Rules
+
+Our order creation API will enforce these rules, in this order:
+
+Rule 1
+
+At least one item.
+
+Already covered by the DTO.
+
+Rule 2
+
+Every product must exist.
+
+If one product doesn't exist:
+
+404 Product not found.
+Rule 3
+
+Product must be ACTIVE.
+
+Later we'll check:
+
+product.status === ACTIVE
+
+If not:
+
+400 Product is inactive.
+Rule 4
+
+Inventory must exist.
+
+404 Inventory not found.
+Rule 5
+
+Available stock must be sufficient.
+
+Current inventory:
+
+Quantity = 100
+
+Reserved = 20
+
+Available = 80
+
+Customer requests:
+
+90
+
+Reject:
+
+400 Insufficient stock.
+Rule 6
+
+Calculate total.
+
+Example:
+
+2 × 39 = 78
+
+1 × 49 = 49
+
+Total = 127
+Rule 7
+
+Create Order.
+
+Rule 8
+
+Create OrderItems.
+
+Rule 9
+
+Reserve stock.
+
+Instead of:
+
+quantity -= qty
+
+we do:
+
+reserved += qty
+
+Exactly as we designed in Sprint 4.
+
+Step 3 — Why Reserve Instead of Deduct?
+
+Inventory:
+
+Quantity = 100
+
+Reserved = 0
+
+Available = 100
+
+Customer places order:
+
+2
+
+Inventory becomes:
+
+Quantity = 100
+
+Reserved = 2
+
+Available = 98
+
+Stock hasn't left the warehouse yet.
+
+Only after payment/shipping will we do:
+
+Quantity = 98
+
+Reserved = 0
+
+Available = 98
+
+This models the real fulfillment lifecycle.
+
+Step 4 — Repository Methods
+
+Before implementing OrdersService, each repository should expose exactly what the service needs.
+
+OrdersRepository
+
+We'll add:
+
+create()
+ProductsRepository
+
+We already have:
+
+findById()
+
+If not, add it.
+
+InventoryRepository
+
+We already have:
+
+findByProductId()
+
+We'll add:
+
+reserveStock()
+
+which will increment the reserved field.
+
+Step 5 — Transaction Placement
+
+Only these operations belong inside the transaction:
+
+Create Order
+
+↓
+
+Create Order Items
+
+↓
+
+Reserve Inventory
+
+Validation should happen before the transaction to avoid holding database resources while performing checks.
+
+Our Implementation Strategy
+
+We'll implement this incrementally:
+
+Phase 1 (next)
+Validate products
+Validate inventory
+Calculate total
+
+(No database writes yet.)
+
+Phase 2
+Create Order
+Phase 3
+Create OrderItems
+Phase 4
+Reserve Inventory
+Phase 5
+Wrap Phases 2–4 in a transaction
+
+This staged approach makes debugging much easier than trying to build everything at once.
+
+🎯 Your Next Task
+
+Before we write the service logic, implement these repository methods:
+
+OrdersRepository
+create(...)
+ProductsRepository
+findById(id: string)
+
+(if it doesn't already exist)
+
+InventoryRepository
+reserveStock(productId: string, quantity: number)
+
+For reserveStock, use Prisma's atomic increment:
+
+data: {
+  reserved: {
+    increment: quantity,
+  },
+}
+
+====
+
+🚀 Sprint 5 — Session 5
+Prisma Transactions
+
+First, understand what we're trying to achieve.
+
+Today your workflow is:
+
+Validate
+
+↓
+
+Create Order
+
+↓
+
+Create Order Items
+
+↓
+
+Reserve Inventory
+
+Imagine this happens:
+
+Create Order            ✅
+
+Create Order Items      ✅
+
+Reserve Inventory       ❌
+
+Now your database contains an order that has not actually reserved stock.
+
+That's a business inconsistency.
+
+A transaction guarantees:
+
+Everything succeeds
+
+OR
+
+Everything rolls back
+Step 1 — Extend OrdersRepository
+
+Instead of exposing only:
+
+create()
+
+we'll expose one method responsible for the entire write operation.
+
+Example:
+
+async createOrder(
+    userId: string,
+    validatedItems: ...,
+    totalAmount: number,
+)
+
+This method—not the service—will contain prisma.$transaction().
+
+Why?
+
+Because the Repository owns database operations.
+
+The Service owns business rules.
+
+This separation is consistent with the architecture we've followed since Sprint 1.
+
+Step 2 — Transaction Structure
+
+Inside OrdersRepository:
+
+return this.prisma.$transaction(async (tx) => {
+
+});
+
+Notice:
+
+tx
+
+is a transactional Prisma client.
+
+From this point onward:
+
+❌ Don't use
+
+this.prisma.order.create(...)
+
+Use
+
+tx.order.create(...)
+
+Everything inside the callback participates in the same transaction.
+
+Step 3 — Create Order
+const order = await tx.order.create({
+    data: {
+        userId,
+        totalAmount,
+    },
+});
+
+status is omitted because Prisma applies the default:
+
+PENDING
+Step 4 — Create Order Items
+
+Loop:
+
+for (const item of validatedItems) {
+
+}
+
+Inside:
+
+await tx.orderItem.create({
+    data: {
+
+        orderId: order.id,
+
+        productId: item.product.id,
+
+        quantity: item.quantity,
+
+        unitPrice: item.unitPrice,
+
+    },
+});
+
+Notice we're using the validated product, not the request DTO.
+
+Step 5 — Reserve Inventory
+
+Still inside the loop:
+
+await tx.inventory.update({
+
+    where: {
+
+        productId: item.product.id,
+
+    },
+
+    data: {
+
+        reserved: {
+
+            increment: item.quantity,
+
+        },
+
+    },
+
+});
+
+This is exactly why we designed Sprint 4 with:
+
+reserved
+
+instead of immediately deducting quantity.
+
+Step 6 — Return Order
+
+After the loop:
+
+return order;
+
+If any statement throws an exception:
+
+Order
+
+↓
+
+Rollback
+
+↓
+
+Nothing saved
+Step 7 — Service
+
+Your service becomes much simpler.
+
+Instead of returning:
+
+return {
+
+    totalAmount,
+
+    validatedItems,
+
+};
+
+you'll call:
+
+const order =
+    await this.ordersRepository.createOrder(
+        user.sub,
+        validatedItems,
+        totalAmount,
+    );
+
+Then map it to your OrderResponseDto.
+
+Step 8 — Controller
+
+You'll now need the authenticated user.
+
+@Post()
+@UseGuards(
+    JwtAuthGuard,
+)
+createOrder(
+
+    @CurrentUser() user: JwtPayload,
+
+    @Body() dto: CreateOrderDto,
+
+) {
+    return this.ordersService.create(
+        user,
+        dto,
+    );
+}
+
+Orders should always belong to the logged-in user.
+
+Expected Database State
+
+Before:
+
+Orders
+
+0
+
+OrderItems
+
+0
+
+Inventory
+
+Quantity = 1600
+
+Reserved = 0
+
+Request:
+
+{
+  "items": [
+    {
+      "productId": "...",
+      "quantity": 2
+    }
+  ]
+}
+
+After:
+
+Orders
+
+1
+OrderItems
+
+1
+Inventory
+
+Quantity = 1600
+
+Reserved = 2
+
+Available = 1598
+
+Exactly as designed.
+
+🚀 Enterprise Improvement
+
+There's one enhancement I'd make while we're implementing this.
+
+Currently, your validation happens outside the transaction. That's good for performance because transactions stay short.
+
+However, there's a small race condition:
+
+User A validates that 5 units are available.
+User B places an order and reserves those 5 units.
+User A's transaction starts and reserves another 5 units.
+
+This is a classic concurrency problem.
+
+For our learning project, the current approach is perfectly acceptable and teaches the right concepts. In a production system with high traffic, we'd address this with stronger transactional guarantees (such as rechecking availability inside the transaction or using appropriate database locking/isolation strategies).
+
+I suggest we keep the current design for Sprint 5 because it's clean, readable, and introduces transactions without adding advanced concurrency complexity. Later, once the full order workflow is complete, we can revisit this and evolve it into a production-grade reservation strategy.
+
+===
+
+🚀 Sprint 5 — Session 6
+Get Orders APIs
+
+Now we implement the read side of the order module.
+
+We need two APIs:
+
+1. Get Logged-in User Orders
+Endpoint
+GET /orders
+
+Example response:
+
+{
+    "data": [
+        {
+            "id": "d2757e79-1236-4c4d-b02d-f6c47974d648",
+            "status": "PENDING",
+            "totalAmount": 78,
+            "items": [
+                {
+                    "productId": "0a60bc4f-9bfa-45c6-aef9-abd130e9dc42",
+                    "quantity": 2,
+                    "unitPrice": 39
+                }
+            ],
+            "createdAt": "2026-07-24T..."
+        }
+    ]
+}
+
+Important:
+
+This should only return the logged-in user's orders.
+
+Example:
+
+User A:
+
+GET /orders
+
+should not see User B's orders.
+
+2. Get Order By ID
+Endpoint
+GET /orders/:id
+
+Example:
+
+{
+    "id": "d2757e79-1236-4c4d-b02d-f6c47974d648",
+    "status": "PENDING",
+    "totalAmount": 78,
+    "items": [
+        {
+            "productId": "0a60bc4f-9bfa-45c6-aef9-abd130e9dc42",
+            "quantity": 2,
+            "unitPrice": 39
+        }
+    ]
+}
+
+Business rule:
+
+If another user tries:
+
+GET /orders/d2757e79...
+
+they should receive:
+
+{
+    "message": "Order not found.",
+    "statusCode": 404
+}
+
+Do not expose that another user's order exists.
+
+Step 1 — Repository Methods
+
+Add these methods:
+
+orders.repository.ts
+Get User Orders
+async findByUserId(userId:string){
+
+    return this.prisma.order.findMany({
+
+        where:{
+            userId,
+        },
+
+        include:{
+            items:true,
+        },
+
+        orderBy:{
+            createdAt:'desc',
+        },
+
+    });
+
+}
+Get Order By ID
+async findById(
+    orderId:string,
+    userId:string,
+){
+
+    return this.prisma.order.findFirst({
+
+        where:{
+            id:orderId,
+            userId,
+        },
+
+        include:{
+            items:true,
+        },
+
+    });
+
+}
+
+Notice:
+
+I am intentionally using:
+
+findFirst()
+
+instead of:
+
+findUnique()
+
+because we need two conditions:
+
+id
++
+userId
+Step 2 — Service Methods
+
+Add:
+
+async findAll(user:JwtPayload){
+
+    return this.orderRepository.findByUserId(
+        user.sub,
+    );
+
+}
+
+And:
+
+async findOne(
+    user:JwtPayload,
+    orderId:string,
+){
+
+    const order =
+        await this.orderRepository.findById(
+            orderId,
+            user.sub,
+        );
+
+
+    if(!order){
+
+        throw new NotFoundException(
+            'Order not found.',
+        );
+
+    }
+
+
+    return order;
+
+}
+Step 3 — Controller
+
+Add:
+
+@Get()
+@UseGuards(JwtAuthGuard)
+findAll(
+    @CurrentUser() user:JwtPayload,
+){
+
+    return this.orderService.findAll(user);
+
+}
+
+Add:
+
+@Get(':id')
+@UseGuards(JwtAuthGuard)
+findOne(
+    @CurrentUser() user:JwtPayload,
+    @Param('id') id:string,
+){
+
+    return this.orderService.findOne(
+        user,
+        id,
+    );
+
+}
+
+Import:
+
+import { Param } from '@nestjs/common';
+Testing Checklist
+
+After implementation:
+
+Get Orders
+GET localhost:3000/orders
+
+Expected:
+
+{
+ "data":[
+    {
+       "id":"...",
+       "status":"PENDING"
+    }
+ ]
+}
+Get Order
+GET localhost:3000/orders/d2757e79...
+
+Expected:
+
+{
+ "id":"...",
+ "status":"PENDING"
+}
+Invalid ID
+GET localhost:3000/orders/random
+
+Expected:
+
+{
+ "message":"Order not found.",
+ "statusCode":404
+}
+Other User Order
+
+Expected:
+
+{
+ "message":"Order not found.",
+ "statusCode":404
+}
+
+After these two APIs are complete, Sprint 5 will have only one major business piece remaining:
+
+🚀 Order Status + Inventory Finalization
+
+Meaning:
+
+PENDING
+   |
+   |
+CONFIRMED
+   |
+   |
+PAID
+
+and eventually:
+
+reserved -= quantity
+quantity -= quantity
+
+when stock officially leaves inventory.
+
+Let's implement the read APIs first. This will also prepare the foundation for the admin/order management side later.
+
+===
+
+🚀 Sprint 5 — Session 7
+Order Status Management
+
+Creating an order is only the beginning.
+
+A real order changes state over time.
+
+PENDING
+    │
+    ▼
+CONFIRMED
+    │
+    ▼
+PAID
+    │
+    ▼
+SHIPPED
+    │
+    ▼
+DELIVERED
+
+Or
+
+PENDING
+    │
+    ▼
+CANCELLED
+Business Rule
+
+Not every transition should be allowed.
+
+Example:
+
+PENDING
+   │
+   ├──► CONFIRMED
+   │
+   └──► CANCELLED
+
+After confirmation:
+
+CONFIRMED
+      │
+      ▼
+PAID
+
+After payment:
+
+PAID
+     │
+     ▼
+SHIPPED
+
+After shipping:
+
+SHIPPED
+      │
+      ▼
+DELIVERED
+
+Notice:
+
+DELIVERED
+
+↓
+
+PENDING ❌
+
+should never happen.
+
+Inventory Behavior
+
+This is why we introduced reserved stock.
+
+PENDING
+Quantity = 100
+
+Reserved = 2
+
+Available = 98
+
+Nothing leaves the warehouse yet.
+
+PAID (or SHIPPED)
+
+Now the warehouse packs the item.
+
+Inventory becomes:
+
+Quantity = 98
+
+Reserved = 0
+
+Available = 98
+
+Notice:
+
+Quantity--
+
+Reserved--
+CANCELLED
+
+Customer cancels before shipping.
+
+Quantity = 100
+
+Reserved = 0
+
+Available = 100
+
+Only:
+
+Reserved--
+
+Quantity stays the same.
+
+This is exactly why we designed Sprint 4 the way we did.
+
+API Design
+
+We'll implement:
+
+PATCH /orders/:id/status
+
+Protected by:
+
+JWT
++
+ADMIN
+
+Customers should not change order statuses.
+
+DTO
+
+Create:
+
+dto/update-order-status.dto.ts
+import { IsEnum } from 'class-validator';
+import { OrderStatus } from '@prisma/client';
+
+export class UpdateOrderStatusDto {
+  @IsEnum(OrderStatus)
+  status: OrderStatus;
+}
+
+No strings.
+
+Use the enum directly.
+
+Repository
+
+We'll add:
+
+findByIdForUpdate(id: string)
+
+Notice the difference.
+
+Current API:
+
+findById(id,userId)
+
+filters by customer ownership.
+
+Admin APIs shouldn't.
+
+We'll therefore create a separate repository method.
+
+Service Flow
+Find Order
+
+↓
+
+Validate Transition
+
+↓
+
+Transaction
+
+    Update Order
+
+    Update Inventory
+
+↓
+
+Return Response
+Allowed Transitions
+
+We'll explicitly enforce:
+
+Current	Next	Allowed
+PENDING	CONFIRMED	✅
+PENDING	CANCELLED	✅
+CONFIRMED	PAID	✅
+PAID	SHIPPED	✅
+SHIPPED	DELIVERED	✅
+
+Everything else:
+
+400 Invalid status transition.
+
+This keeps the workflow deterministic and prevents accidental regressions.
+
+Inventory Updates
+
+Inside the transaction:
+
+CANCELLED
+reserved -= ordered quantity
+PAID
+quantity -= ordered quantity
+
+reserved -= ordered quantity
+
+Later, if your business decides to deduct inventory at SHIPPED instead of PAID, you only need to change this one rule.
+
+Repository Method
+
+We'll add a dedicated repository method similar to createOrder(), for example:
+
+updateStatus(
+  orderId,
+  status,
+)
+
+This method will:
+
+Start a transaction.
+Update the order status.
+Update inventory for every order item (depending on the new status).
+Commit or roll back.
+
+Again, the repository owns the database transaction, while the service owns the business rules.
+
+Why We're Doing This Before Closing Sprint 5
+
+When this feature is complete, ShopSphere will support the full order lifecycle:
+
+Customer places order
+        │
+        ▼
+Inventory reserved
+        │
+        ▼
+Admin confirms
+        │
+        ▼
+Customer pays
+        │
+        ▼
+Inventory deducted
+        │
+        ▼
+Order shipped
+        │
+        ▼
+Order delivered
+
+That's the first complete business workflow in the project—from catalog, through inventory, to order fulfillment.
+
+Once this is implemented, we'll document Sprint 5, run the build, commit, and then move on to Sprint 6 (Shopping Cart) with a solid transactional foundation.

@@ -32,4 +32,17 @@ export class InventoryRepository {
       },
     });
   }
+
+  async reserveStock(productId: string, quantity: number) {
+    return this.prisma.inventory.update({
+      where: {
+        productId,
+      },
+      data: {
+        reserved: {
+          increment: quantity,
+        },
+      }
+    });
+  }
 }
