@@ -16,6 +16,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { ProfileModule } from './modules/profile/profile.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { CartModule } from './modules/cart/cart.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     CategoriesModule,
     ProfileModule,
     InventoryModule,
+    CartModule,
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [AppService, UsersService, ProductsService, JwtService],

@@ -1,0 +1,722 @@
+🚀 Sprint 6 — Shopping Cart
+Sprint Goal
+
+Implement a persistent shopping cart system where customers can:
+
+Add products to cart
+Update cart quantities
+Remove products
+View current cart
+Validate inventory before checkout
+
+The important architectural decision:
+
+The Cart is temporary state.
+The Order is the final business transaction.
+
+Meaning:
+
+Customer Browsing
+
+        ↓
+
+Shopping Cart
+
+        ↓
+
+Checkout
+
+        ↓
+
+Order Creation
+
+        ↓
+
+Inventory Reservation
+Sprint 6 Architecture
+
+We will follow the same pattern:
+
+Controller
+    |
+    ↓
+Service
+    |
+    ↓
+Repository
+    |
+    ↓
+Prisma
+    |
+    ↓
+PostgreSQL
+Step 1 — Database Design
+
+Before creating files, we design the schema.
+
+A cart needs:
+
+Cart
+
+Represents one customer's active cart.
+
+Example:
+
+Cart
+---------
+id
+userId
+createdAt
+updatedAt
+
+Relationship:
+
+User
+ |
+ |
+Cart
+CartItem
+
+Stores products inside the cart.
+
+Example:
+
+CartItem
+------------
+id
+cartId
+productId
+quantity
+createdAt
+updatedAt
+
+Relationship:
+
+Cart
+
+ |
+ |
+CartItem
+
+ |
+ |
+Product
+Prisma Schema Addition
+
+Add:
+
+model Cart {
+
+  id String @id @default(uuid())
+
+  userId String @unique
+
+  user User @relation(
+    fields: [userId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  items CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model CartItem {
+
+  id String @id @default(uuid())
+
+  cartId String
+
+  productId String
+
+  quantity Int
+
+  cart Cart @relation(
+    fields: [cartId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  product Product @relation(
+    fields: [productId],
+    references: [id],
+    onDelete: Restrict
+  )
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+}
+Why @@unique([cartId, productId])?
+
+Important business rule:
+
+A cart cannot contain the same product twice.
+
+Example:
+
+❌
+
+Cart
+
+iPhone Case quantity 2
+
+iPhone Case quantity 3
+
+Instead:
+
+✅
+
+Cart
+
+iPhone Case quantity 5
+
+So when adding an existing product:
+
+Existing CartItem
+
+        ↓
+
+Increase quantity
+
+not create another row.
+
+Update User Model
+
+Currently you have:
+
+model User {
+
+}
+
+Add:
+
+cart Cart?
+Update Product Model
+
+Add:
+
+cartItems CartItem[]
+Migration
+
+After schema update:
+
+npx prisma format
+
+npx prisma validate
+
+npx prisma migrate dev --name add_cart_module
+Sprint 6 Sessions Plan
+
+I suggest:
+
+Session 1
+
+✅ Prisma schema
+✅ Cart Module creation
+✅ DTOs
+✅ Repository skeleton
+
+Session 2
+
+Implement:
+
+POST /cart/items
+
+Add product to cart.
+
+Business rules:
+
+User must be authenticated
+Product must exist
+Quantity must be > 0
+If item exists → increase quantity
+Session 3
+
+Implement:
+
+GET /cart
+
+Response:
+
+{
+ "id":"cart-id",
+ "items":[
+   {
+    "productId":"123",
+    "name":"iPhone Case",
+    "quantity":2,
+    "price":39,
+    "subtotal":78
+   }
+ ],
+ "total":78
+}
+Session 4
+
+Implement:
+
+PATCH /cart/items/:id
+
+Update quantity.
+
+Session 5
+
+Implement:
+
+DELETE /cart/items/:id
+
+Remove item.
+
+Session 6
+
+Cart → Order Integration
+
+This is the interesting part:
+
+Current:
+
+POST /orders
+
+takes:
+
+{
+ items:[
+  {
+   productId,
+   quantity
+  }
+ ]
+}
+
+Later we can add:
+
+POST /cart/checkout
+
+Flow:
+
+Cart
+
+↓
+
+Validate Stock
+
+↓
+
+Create Order
+
+↓
+
+Clear Cart
+
+===
+
+🚀 Sprint 6 — Session 2
+POST /cart/items
+
+This API will add a product to the authenticated user's cart.
+
+Step 1 — Business Rules
+
+The service should implement these validations in order:
+
+User authenticated
+        ↓
+Product exists
+        ↓
+Product is ACTIVE
+        ↓
+Quantity > 0 (DTO validation)
+        ↓
+Find/Create Cart
+        ↓
+Item already exists?
+        ↓
+Yes → Increase quantity
+No  → Create new CartItem
+        ↓
+Return updated cart
+
+Notice that we are not reserving inventory here. Inventory is only reserved during Order Creation (Sprint 5). The cart simply records customer intent.
+
+Step 2 — Repository Methods
+
+Let's start by implementing these repository methods.
+
+Cart Repository
+async findByUserId(userId: string)
+return this.prisma.cart.findUnique({
+    where: {
+        userId,
+    },
+    include: {
+        items: {
+            include: {
+                product: true,
+            },
+        },
+    },
+});
+Create Cart
+async createCart(userId: string)
+return this.prisma.cart.create({
+    data: {
+        userId,
+    },
+});
+Find Cart Item
+async findCartItem(
+    cartId: string,
+    productId: string,
+)
+return this.prisma.cartItem.findUnique({
+    where: {
+        cartId_productId: {
+            cartId,
+            productId,
+        },
+    },
+});
+
+This works because of the composite unique constraint:
+
+@@unique([cartId, productId])
+Increase Quantity
+async increaseQuantity(
+    itemId: string,
+    quantity: number,
+)
+return this.prisma.cartItem.update({
+    where: {
+        id: itemId,
+    },
+    data: {
+        quantity: {
+            increment: quantity,
+        },
+    },
+});
+Create Cart Item
+async createCartItem(
+    cartId: string,
+    dto: AddCartItemDto,
+)
+return this.prisma.cartItem.create({
+    data: {
+        cartId,
+        productId: dto.productId,
+        quantity: dto.quantity,
+    },
+});
+Step 3 — Product Validation
+
+Reuse the existing ProductsRepository.
+
+In the service:
+
+const product =
+    await this.productRepository.findById(
+        dto.productId,
+    );
+
+if (!product) {
+    throw new NotFoundException(
+        'Product not found.',
+    );
+}
+
+Then:
+
+if (product.status !== ProductStatus.ACTIVE) {
+    throw new BadRequestException(
+        'Product is not active.',
+    );
+}
+
+Exactly like the Order module.
+
+Step 4 — Find or Create Cart
+let cart =
+    await this.cartRepository.findByUserId(
+        user.sub,
+    );
+
+if (!cart) {
+    cart =
+        await this.cartRepository.createCart(
+            user.sub,
+        );
+}
+
+Each user owns exactly one cart because of:
+
+userId String @unique
+Step 5 — Existing Item?
+const existingItem =
+    await this.cartRepository.findCartItem(
+        cart.id,
+        dto.productId,
+    );
+
+If found:
+
+await this.cartRepository.increaseQuantity(
+    existingItem.id,
+    dto.quantity,
+);
+
+Otherwise:
+
+await this.cartRepository.createCartItem(
+    cart.id,
+    dto,
+);
+Step 6 — Return Response
+
+At the end of the service, don't return just the created/updated item.
+
+Instead, reload the cart:
+
+const updatedCart =
+    await this.cartRepository.findByUserId(
+        user.sub,
+    );
+
+and map it to your CartResponseDto.
+
+This gives the frontend the complete current cart after every change, which simplifies client-side state management.
+
+API Response
+
+I recommend structuring the response like this:
+
+{
+  "id": "cart-id",
+  "items": [
+    {
+      "productId": "product-id",
+      "name": "iPhone 16 Case",
+      "price": 39,
+      "quantity": 2,
+      "subtotal": 78
+    }
+  ],
+  "total": 78
+}
+
+This keeps the response useful while avoiding another immediate GET /cart request.
+
+Testing Checklist
+
+When you've implemented this, verify these scenarios:
+
+✅ First product added → Cart is automatically created.
+✅ Add another different product → New CartItem is created.
+✅ Add the same product again → Quantity increases instead of creating a duplicate row.
+✅ Invalid product ID → 404 Product not found.
+✅ Inactive product → 400 Product is not active.
+✅ Invalid quantity → DTO validation returns 400.
+
+Once this API is working, we'll move on to GET /cart, which will reuse most of the response mapping logic you've already built.
+
+====
+
+🚀 New API
+PUT /cart/items
+Purpose
+
+Replace the entire contents of the user's cart with the items provided in the request.
+
+This means:
+
+✅ Update existing items
+✅ Add new items
+✅ Remove items not present in the request
+Example
+
+Current Cart
+
+A ×2
+B ×1
+C ×4
+
+Request
+
+{
+  "items": [
+    {
+      "productId": "B",
+      "quantity": 5
+    },
+    {
+      "productId": "D",
+      "quantity": 2
+    }
+  ]
+}
+
+After execution
+
+B ×5
+D ×2
+
+Internally the API performs:
+
+DELETE A
+UPDATE B
+DELETE C
+CREATE D
+
+inside one Prisma transaction.
+
+Request DTO
+export class ReplaceCartItemsDto {
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CartItemsDto)
+    items: CartItemsDto[];
+}
+Controller
+@Put('items')
+@UseGuards(JwtAuthGuard)
+replaceItems(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ReplaceCartItemsDto,
+): Promise<CartResponseDto> {
+    return this.cartService.replaceItems(user, dto);
+}
+Service Flow
+Find user's cart
+        ↓
+Create cart if doesn't exist
+        ↓
+Validate duplicate product IDs
+        ↓
+Validate every product
+        ↓
+Load existing cart items
+        ↓
+Begin Transaction
+        ↓
+Delete removed products
+        ↓
+Update existing products
+        ↓
+Insert new products
+        ↓
+Reload cart
+        ↓
+Return CartResponseDto
+Step 1 — Find/Create Cart
+let cart = await this.cartRepository.findByUserId(user.sub);
+
+if (!cart) {
+    await this.cartRepository.createCart(user.sub);
+    cart = await this.cartRepository.findByUserId(user.sub);
+}
+
+if (!cart) {
+    throw new NotFoundException('Cart not found.');
+}
+Step 2 — Prevent duplicate products
+const productIds = dto.items.map(i => i.productId);
+
+if (new Set(productIds).size !== productIds.length) {
+    throw new BadRequestException(
+        'Duplicate products are not allowed.',
+    );
+}
+Step 3 — Validate every item
+
+Reuse your existing helper.
+
+for (const item of dto.items) {
+    await this.validateProductForCart(
+        item.productId,
+        item.quantity,
+    );
+}
+Step 4 — Load existing items
+const existingItems = cart.items;
+Step 5 — Call Repository
+await this.cartRepository.replaceItems(
+    cart.id,
+    existingItems,
+    dto.items,
+);
+Repository
+
+This is where all database modifications happen.
+
+async replaceItems(
+    cartId: string,
+    existingItems: any[],
+    incomingItems: CartItemsDto[],
+) {
+    return this.prisma.$transaction(async (tx) => {
+
+        // Delete removed items
+
+        for (const existing of existingItems) {
+
+            const stillExists = incomingItems.find(
+                item => item.productId === existing.productId,
+            );
+
+            if (!stillExists) {
+
+                await tx.cartItem.delete({
+                    where: {
+                        id: existing.id,
+                    },
+                });
+
+            }
+        }
+
+
+        // Update existing / Create new
+
+        for (const incoming of incomingItems) {
+
+            const existing = existingItems.find(
+                item => item.productId === incoming.productId,
+            );
+
+            if (existing) {
+
+                await tx.cartItem.update({
+                    where: {
+                        id: existing.id,
+                    },
+                    data: {
+                        quantity: incoming.quantity,
+                    },
+                });
+
+            } else {
+
+                await tx.cartItem.create({
+                    data: {
+                        cartId,
+                        productId: incoming.productId,
+                        quantity: incoming.quantity,
+                    },
+                });
+
+            }
+        }
+
+    });
+}
+Step 6 — Reload cart
+const updatedCart =
+    await this.cartRepository.findByUserId(user.sub);
+
+return this.toCartResponse(updatedCart!);
+
+
