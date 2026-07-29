@@ -1,0 +1,301 @@
+Excellent. This is the sprint where ShopSphere starts behaving like a real e-commerce platform.
+
+One architectural note before we begin:
+
+We will not duplicate the order creation logic.
+
+Right now you already have:
+
+✅ Product Module
+✅ Inventory Module
+✅ Order Module
+✅ Cart Module
+
+Sprint 7's job is to orchestrate these modules, not reimplement them.
+
+🚀 Sprint 7 — Checkout & Order Conversion
+Objective
+
+Convert a customer's shopping cart into an order while ensuring:
+
+Cart validation
+Inventory validation
+Atomic transaction
+Cart cleanup
+Future payment integration
+Customer Flow
+Login
+   │
+Browse Products
+   │
+Add Items to Cart
+   │
+Review Cart
+   │
+Checkout
+   │
+Validate Cart
+   │
+Create Order
+   │
+Reserve Inventory
+   │
+Clear Cart
+   │
+Return Order
+   │
+Proceed to Payment
+
+Notice that "Create Order" is not new—we'll reuse your Sprint 5 logic.
+
+Business Requirements
+
+Customer clicks Checkout.
+
+System should:
+
+Step 1
+
+Authenticate user
+
+↓
+
+Step 2
+
+Load user's cart
+
+↓
+
+Step 3
+
+Ensure cart exists
+
+↓
+
+Step 4
+
+Ensure cart is not empty
+
+↓
+
+Step 5
+
+Validate every product
+
+exists
+ACTIVE
+inventory available
+
+↓
+
+Step 6
+
+Create Order
+
+↓
+
+Step 7
+
+Reserve Inventory
+
+↓
+
+Step 8
+
+Delete Cart Items
+
+↓
+
+Step 9
+
+Return created order
+
+API
+POST /checkout
+
+Request
+
+No body required.
+
+Everything comes from the authenticated user's cart.
+
+Example
+
+POST /checkout
+Authorization: Bearer <JWT>
+Expected Response
+{
+  "id": "order-id",
+  "status": "PENDING",
+  "totalAmount": 195,
+  "items": [
+    {
+      "productId": "...",
+      "quantity": 2,
+      "unitPrice": 39
+    }
+  ]
+}
+Architecture
+
+Instead of this:
+
+CheckoutService
+
+↓
+
+Duplicate Order Logic
+
+↓
+
+Duplicate Inventory Logic
+
+We'll do this:
+
+CheckoutController
+        │
+CheckoutService
+        │
+CartRepository
+        │
+OrderRepository
+        │
+InventoryRepository
+        │
+Prisma
+
+The checkout service will orchestrate existing components rather than copying business rules.
+
+Repository Responsibilities
+CartRepository
+Find user's cart
+Delete cart items
+Delete empty cart (optional)
+OrderRepository
+
+Already implemented:
+
+Create order
+Reserve inventory
+
+We'll reuse it.
+
+InventoryRepository
+
+Already implemented.
+
+No changes required.
+
+Session Plan
+✅ Session 1
+
+Database & Checkout Module
+
+Checkout module
+DTOs
+Controller
+Service
+Repository
+✅ Session 2
+
+Checkout Validation
+
+Cart exists
+Cart not empty
+Product validation
+Inventory validation
+✅ Session 3
+
+Order Conversion
+
+Reuse your existing:
+
+createOrder()
+
+No duplicated business logic.
+
+✅ Session 4
+
+Cart Cleanup
+
+After successful order:
+
+Delete Cart Items
+
+↓
+
+(Optional)
+
+Delete Empty Cart
+
+This must happen inside the same database transaction as the order creation to avoid ending up with an order created but the cart still populated.
+
+✅ Session 5
+
+Testing & Documentation
+
+Checkout success
+Empty cart
+Invalid product
+Inactive product
+Insufficient stock
+Transaction rollback
+Documentation
+Git tag
+Small Architecture Improvement
+
+There's one improvement I'd like to introduce during Sprint 7.
+
+Currently, your OrderService.create() performs:
+
+product validation
+inventory validation
+total calculation
+order creation
+
+The CheckoutService needs almost the same behavior, but its input comes from the cart instead of a request DTO.
+
+Rather than duplicating this logic, we'll extract the common workflow into a reusable method (or domain-level service) that both OrderService and CheckoutService can call.
+
+This keeps the validation rules in one place and makes future changes much easier.
+
+Today's Goal
+
+Let's begin with 🚀 Sprint 7 — Session 1: Checkout Module Setup.
+
+Create:
+
+modules/
+└── checkout/
+    ├── checkout.controller.ts
+    ├── checkout.service.ts
+    ├── checkout.repository.ts
+    ├── checkout.module.ts
+    ├── dto/
+    │   └── checkout-response.dto.ts
+    └── interfaces/
+        └── checkout-item.interface.ts
+
+Note: Unlike previous modules, there is no Prisma migration for Sprint 7 because Checkout is an orchestration layer that uses the existing Cart, Order, and Inventory tables. This is another common enterprise pattern: not every module owns its own database tables.
+
+
+===
+
+Next Session (Sprint 7)
+
+The remaining work is relatively small:
+
+Wrap checkout in a single Prisma transaction
+Create order
+Create order items
+Reserve inventory
+Clear cart
+All succeed or all roll back together
+Payment preparation
+Generate a payment reference (or placeholder payment session)
+Return payment status (PENDING)
+Prepare the architecture for Stripe, PayPal, or another gateway later
+Documentation
+README.md
+checkout.md
+testing.md

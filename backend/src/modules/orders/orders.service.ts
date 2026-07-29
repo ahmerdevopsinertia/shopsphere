@@ -7,7 +7,9 @@ import { OrderResponseDto } from './dto/order-response.dto';
 import { JwtPayload } from '../profile/profile.service';
 import { OrderListResponseDto } from './dto/order-list-response.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+
 import { OrderStatus } from '@prisma/client';
+import { ValidatedOrderItem } from 'validated-order-item.interface';
 
 @Injectable()
 export class OrdersService {
@@ -17,47 +19,80 @@ export class OrdersService {
 	) { }
 
 	async create(user: any, dto: CreateOrderDto): Promise<OrderResponseDto> {
-		let totalAmount = 0;
-		const validatedItems: {
-			product: any;
-			inventory: any;
-			quantity: number;
-			unitPrice: number;
-		}[] = [];
-
 		// Checking duplicate products
-
 		const productIds = dto.items.map(item => item.productId);
 
 		if (new Set(productIds).size !== productIds.length) {
 			throw new BadRequestException('Duplicate products are not allowed in an order.');
 		}
 
-		for (const item of dto.items) {
+		const {
+			validatedItems,
+			totalAmount,
+		} = await this.validateOrderItems(dto.items);
 
-			//  Checking product exist
-			const product = await this.productRepository.findById(item.productId);
+		return this.createValidatedOrder
+			(
+				user.sub,
+				validatedItems,
+				totalAmount
+			)
+	}
+
+	private async validateOrderItems(
+		items: {
+			productId: string;
+			quantity: number;
+		}[],
+	): Promise<{
+		totalAmount: number;
+		validatedItems: ValidatedOrderItem[];
+	}> {
+
+		let totalAmount = 0;
+
+		const validatedItems: ValidatedOrderItem[] = [];
+
+
+		for (const item of items) {
+
+			const product =
+				await this.productRepository.findById(
+					item.productId,
+				);
+
 
 			if (!product) {
-				throw new NotFoundException('Product not found.');
+				throw new NotFoundException(
+					'Product not found.',
+				);
 			}
 
-			//  Checking product status
+
 			if (product.status !== 'ACTIVE') {
 				throw new BadRequestException(
 					'Product is not active.',
 				);
 			}
 
-			// Checking inventory
-			const inventory = await this.inventoryRepository.findByProductId(product.id);
+
+			const inventory =
+				await this.inventoryRepository.findByProductId(
+					product.id,
+				);
+
 
 			if (!inventory) {
-				throw new NotFoundException('Inventory not found.');
+				throw new NotFoundException(
+					'Inventory not found.',
+				);
 			}
 
-			// Calculating available stock
-			const available = inventory.quantity - inventory.reserved;
+
+			const available =
+				inventory.quantity -
+				inventory.reserved;
+
 
 			if (item.quantity > available) {
 				throw new BadRequestException(
@@ -65,9 +100,14 @@ export class OrdersService {
 				);
 			}
 
-			const unitPrice = Number(product.price);
 
-			totalAmount += unitPrice * item.quantity;
+			const unitPrice =
+				Number(product.price);
+
+
+			totalAmount +=
+				unitPrice * item.quantity;
+
 
 			validatedItems.push({
 				product,
@@ -77,16 +117,36 @@ export class OrdersService {
 			});
 		}
 
-		const order = await this.orderRepository.createOrder(user.sub, validatedItems, totalAmount);
+
+		return {
+			totalAmount,
+			validatedItems,
+		};
+	}
+
+	async createValidatedOrder(
+		userId: string,
+		validatedItems: ValidatedOrderItem[],
+		totalAmount: number,
+	): Promise<OrderResponseDto> {
+
+		const order =
+			await this.orderRepository.createOrder(
+				userId,
+				validatedItems,
+				totalAmount,
+			);
 
 		return {
 			id: order.id,
 			status: order.status,
 			totalAmount: Number(order.totalAmount),
-			items: validatedItems.map(item => ({
-				productId: item.product.id,
+			paymentStatus: order.paymentStatus,
+			paymentReference: order.paymentReference,
+			items: order.items.map((item: any) => ({
+				productId: item.productId,
 				quantity: item.quantity,
-				unitPrice: Number(item.unitPrice)
+				unitPrice: Number(item.unitPrice),
 			})),
 		};
 	}
@@ -165,6 +225,8 @@ export class OrdersService {
 			id: updatedOrder.id,
 			status: updatedOrder.status,
 			totalAmount: Number(updatedOrder.totalAmount),
+			paymentStatus: order.paymentStatus,
+			paymentReference: order.paymentReference,
 			items: updatedOrder.items.map((item: any) => ({
 				productId: item.productId,
 				quantity: item.quantity,

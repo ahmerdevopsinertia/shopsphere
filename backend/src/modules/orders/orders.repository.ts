@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 import { OrderStatus } from '@prisma/client';
+import { ValidatedOrderItem } from "validated-order-item.interface";
 
 @Injectable()
 export class OrdersRepository {
@@ -8,7 +9,7 @@ export class OrdersRepository {
 
 	async createOrder(
 		userId: string,
-		validatedItems: any,
+		validatedItems: ValidatedOrderItem[],
 		totalAmount: number,
 	) {
 		return this.prisma.$transaction(async (tx: any) => {
@@ -129,7 +130,7 @@ export class OrdersRepository {
 	) {
 
 		const shouldReleaseReservation = newStatus === OrderStatus.CANCELLED;
-const shouldDeductInventory = newStatus === OrderStatus.PAID;
+		const shouldDeductInventory = newStatus === OrderStatus.PAID;
 
 		return this.prisma.$transaction(async (tx: any) => {
 			const updatedOrder = await tx.order.update({

@@ -152,4 +152,12 @@ export class CartRepository {
 			},
 		);
 	}
+
+	async clearCart(cartId: string): Promise<void> {
+		await this.prisma.cartItem.deleteMany({
+			where: {
+				cartId,
+			},
+		});
+	}
 }

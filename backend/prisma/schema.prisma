@@ -126,6 +126,9 @@ model Order {
 
   items OrderItem[]
 
+  paymentReference String @unique
+  paymentStatus PaymentStatus @default(PENDING)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -178,4 +181,11 @@ model CartItem {
   updatedAt DateTime @updatedAt
 
   @@unique([cartId, productId])
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
 }

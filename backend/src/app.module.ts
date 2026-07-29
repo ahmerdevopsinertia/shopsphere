@@ -17,6 +17,8 @@ import { ConfigModule } from '@nestjs/config';
 import { ProfileModule } from './modules/profile/profile.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { CartModule } from './modules/cart/cart.module';
+import { CheckoutModule } from './modules/checkout/checkout.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { CartModule } from './modules/cart/cart.module';
     ProfileModule,
     InventoryModule,
     CartModule,
+    CheckoutModule,
+    PaymentModule,
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [AppService, UsersService, ProductsService, JwtService],

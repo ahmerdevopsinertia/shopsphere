@@ -9,7 +9,7 @@ import { ProductsModule } from '../products/products.module';
   imports: [ProductsModule, InventoryModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository],
-  exports: [OrdersRepository]
+  exports: [OrdersRepository, OrdersService]
 
 })
 export class OrdersModule { }
