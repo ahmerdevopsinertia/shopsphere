@@ -1,0 +1,41 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: shopsphere-postgres
+    restart: always
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: shopsphere
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+  backend:
+    environment:
+      LOG_LEVEL: debug
+    build:
+      context: .
+
+    container_name: shopsphere-backend
+
+    restart: always
+
+    ports:
+      - "3000:3000"
+
+    env_file:
+      - .env.docker
+
+    depends_on:
+      - postgres
+
+volumes:
+
+  postgres_data:

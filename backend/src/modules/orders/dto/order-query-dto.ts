@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsOptional, IsPositive, Max } from 'class-validator';
+import { IsOptional, IsPositive, IsString, Max, MaxLength } from 'class-validator';
 
 export class OrderQueryDto {
 
@@ -16,5 +16,7 @@ export class OrderQueryDto {
 	limit?: number = 10;
 
 	@IsOptional()
+	@IsString()
+	@MaxLength(100)
 	search?: string;
 }

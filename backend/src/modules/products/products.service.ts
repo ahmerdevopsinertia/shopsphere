@@ -3,7 +3,8 @@ import { ProductsRepository } from './products.repository';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { CategoriesRepository } from '../categories/categories.repository';
-import { count } from 'console';
+import { sanitize, sanitizeOptional } from 'src/common/utils/sanitize';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class ProductsService {
@@ -11,7 +12,15 @@ export class ProductsService {
 		private readonly productRepository: ProductsRepository,
 		private readonly categoryRepository: CategoriesRepository) { }
 
+	private readonly logger =
+		new Logger(ProductsService.name);
+
 	async create(dto: CreateProductDto): Promise<ProductResponseDto> {
+
+		this.logger.debug(
+			'Creating product',
+		);
+
 		// Check SKU exist
 		const existingSku = await this.productRepository.findBySku(dto.sku);
 
@@ -26,6 +35,9 @@ export class ProductsService {
 			throw new NotFoundException('Category not found.');
 		}
 
+		dto.name = sanitize(dto.name);
+		dto.description = sanitizeOptional(dto.description);
+
 		const product = await this.productRepository.create(dto);
 
 		return {
@@ -36,6 +48,7 @@ export class ProductsService {
 			description: product.description ?? undefined,
 			categoryName: product.category.name
 		}
+
 	}
 
 	async findById(id: string): Promise<ProductResponseDto> {

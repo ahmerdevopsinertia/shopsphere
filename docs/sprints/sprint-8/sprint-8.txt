@@ -1,0 +1,2207 @@
+🚀 Sprint 8 — Production Hardening
+Session 1 — Global Exception Filter ⭐⭐⭐⭐⭐
+
+Goal
+
+Standardize every error response.
+
+Current:
+
+{
+  "statusCode": 404,
+  "message": "Product not found",
+  "error": "Not Found"
+}
+
+Target:
+
+{
+  "success": false,
+  "statusCode": 404,
+  "message": "Product not found.",
+  "timestamp": "2026-07-29T20:30:00Z",
+  "path": "/products/123"
+}
+
+Deliverables
+
+Global Exception Filter
+Register in main.ts
+Handle:
+HttpException
+ValidationPipe errors
+Unknown exceptions
+No controller changes required
+Session 2 — API Response Wrapper ⭐⭐⭐⭐⭐
+
+Current
+
+{
+  "id": "...",
+  "name": "..."
+}
+
+Target
+
+{
+  "success": true,
+  "data": {
+    "id": "...",
+    "name": "..."
+    }
+}
+
+Implement using
+
+Global Interceptor
+
+Result
+
+Every endpoint automatically returns
+
+{
+  "success": true,
+  "data": ...
+}
+
+without changing any controller.
+
+Session 3 — Logging ⭐⭐⭐⭐
+
+Replace
+
+console.log(...)
+
+with
+
+private readonly logger = new Logger(OrdersService.name);
+
+Use
+
+this.logger.log(...)
+this.logger.warn(...)
+this.logger.error(...)
+this.logger.debug(...)
+
+Later
+
+Winston
+Pino
+CloudWatch
+ELK
+Session 4 — Configuration Module ⭐⭐⭐⭐⭐
+
+Install
+
+npm install @nestjs/config
+
+Create
+
+config/
+    app.config.ts
+    database.config.ts
+    jwt.config.ts
+
+Move all
+
+process.env.JWT_SECRET
+process.env.PORT
+process.env.DATABASE_URL
+
+behind
+
+ConfigService
+
+Result
+
+Strong typing
+
+Centralized configuration
+
+Session 5 — Security ⭐⭐⭐⭐⭐
+
+Add
+
+Helmet
+CORS
+Rate Limiter
+ValidationPipe improvements
+Request size limits
+Security headers
+
+Packages
+
+helmet
+@nestjs/throttler
+Session 6 — Swagger ⭐⭐⭐⭐
+
+Generate
+
+/api/docs
+
+Features
+
+JWT Authentication
+DTO examples
+Request models
+Response models
+
+Very useful for frontend teams.
+
+Session 7 — Docker ⭐⭐⭐⭐⭐
+
+Create
+
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+Run
+
+docker compose up
+
+Entire backend starts with
+
+PostgreSQL
+Backend
+Session 8 — CI/CD ⭐⭐⭐⭐⭐
+
+GitHub Actions
+
+Workflow
+
+Push
+
+↓
+
+Install
+
+↓
+
+Lint
+
+↓
+
+Build
+
+↓
+
+Run Tests
+
+↓
+
+Deploy
+
+Later
+
+AWS ECS
+EC2
+Render
+Railway
+Azure
+Documentation
+docs/
+└── sprints/
+      sprint-8/
+          README.md
+          production.md
+          testing.md
+Final Architecture After Sprint 8
+Client
+      │
+      ▼
+Controller
+      │
+      ▼
+Response Interceptor
+      │
+      ▼
+Service
+      │
+      ▼
+Repository
+      │
+      ▼
+Prisma
+      │
+      ▼
+PostgreSQL
+
+↑
+Exception Filter
+
+↑
+Logger
+
+↑
+Config Service
+
+↑
+Security
+
+↑
+Swagger
+
+↑
+Docker
+
+↑
+CI/CD
+Recommendation
+
+I suggest implementing these sessions in this order:
+
+✅ Global Exception Filter
+✅ API Response Wrapper
+✅ Logging
+✅ Config Module
+✅ Security
+✅ Swagger
+✅ Docker
+✅ CI/CD
+	The remaining production topics after this are:
+
+		CI/CD with GitHub Actions
+			AWS deployment architecture
+			Logging aggregation (Pino/Winston + CloudWatch)
+			Redis caching
+			Kafka event-driven architecture
+
+		For now, this is a solid production foundation.
+
+This sequence minimizes refactoring because the exception filter and response interceptor become the foundation that every subsequent feature benefits from. After Sprint 8, your backend will have production-grade operational capabilities in addition to the business features you've already completed.
+
+--
+
+One small observation
+
+Your AppModule currently contains:
+
+controllers: [
+  AppController,
+  AuthController,
+  UsersController,
+],
+providers: [
+  AppService,
+  UsersService,
+  ProductsService,
+  JwtService,
+],
+
+This is not the recommended NestJS architecture. Since you already have AuthModule, UsersModule, and ProductsModule, those controllers and providers should live only inside their own modules, not be re-registered in AppModule.
+
+It's not related to the current error, so don't change it now—we'll clean that up during the architecture refinement sprint. It will make your AppModule much smaller and more maintainable.
+
+===
+
+Great. 🚀 Let's start Sprint 8 — Session 5: Security Hardening.
+
+We will implement this in a production-friendly order:
+
+Security Hardening Checklist
+Step	Item	Priority
+1	Helmet Security Headers	⭐⭐⭐⭐⭐
+2	Rate Limiting	⭐⭐⭐⭐⭐
+3	CORS Hardening	⭐⭐⭐⭐
+4	Input Sanitization Review	⭐⭐⭐⭐
+5	Password / JWT Security Review	⭐⭐⭐⭐⭐
+
+Let's start with Step 1 — Helmet.
+
+Step 1 — Install Helmet
+
+Run:
+
+npm install helmet
+Step 2 — Update main.ts
+
+Open:
+
+src/main.ts
+
+Add import:
+
+import helmet from 'helmet';
+
+Add this after Nest app creation:
+
+const app = await NestFactory.create(
+	AppModule,
+);
+
+
+app.use(
+	helmet(),
+);
+
+Your main.ts becomes:
+
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
+
+
+async function bootstrap() {
+
+	const app =
+		await NestFactory.create(
+			AppModule,
+		);
+
+
+	// Security Headers
+	app.use(
+		helmet(),
+	);
+
+
+	const configService =
+		app.get(ConfigService);
+
+
+	// CORS
+	app.enableCors({
+		origin: configService.get<string>(
+			'app.corsOrigin',
+		),
+		credentials: true,
+	});
+
+
+	const port =
+		configService.get<number>(
+			'app.port',
+		);
+
+
+	await app.listen(
+		port ?? 3000,
+	);
+}
+
+
+bootstrap();
+What Helmet adds?
+
+Before:
+
+HTTP Response
+
+Content-Type
+Date
+Connection
+
+After Helmet:
+
+HTTP Response
+
+Content-Security-Policy
+X-Frame-Options
+X-Content-Type-Options
+Strict-Transport-Security
+Referrer-Policy
+X-DNS-Prefetch-Control
+
+Protection against:
+
+✅ Clickjacking
+✅ MIME sniffing
+✅ Some XSS attacks
+✅ Information leakage
+✅ Browser security issues
+
+Step 3 — Verify
+
+Start:
+
+npm run start:dev
+
+Call:
+
+GET /products
+
+Check response headers.
+
+Using curl:
+
+curl -I http://localhost:3000/products
+
+Expected:
+
+content-security-policy: ...
+cross-origin-opener-policy: ...
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+Important Note for Swagger (later)
+
+Helmet may block Swagger UI scripts.
+
+When we add Swagger, we may adjust:
+
+helmet({
+	contentSecurityPolicy: false,
+})
+
+only for development.
+
+For now keep default.
+
+===
+
+Great. 🚀 Sprint 8 — Session 5: Rate Limiting
+
+We will add @nestjs/throttler and configure it globally first, then customize sensitive endpoints.
+
+The strategy for ShopSphere:
+
+API Type	Limit
+Public APIs (products, categories)	100 requests/min
+Auth APIs (login/register/refresh)	5 requests/min
+Checkout / Payment	20 requests/min
+Admin APIs	50 requests/min
+Step 1 — Install Throttler
+
+Run:
+
+npm install @nestjs/throttler
+Step 2 — Configure Globally in AppModule
+
+Open:
+
+src/app.module.ts
+
+Add import:
+
+import { ThrottlerModule } from '@nestjs/throttler';
+
+Inside imports add:
+
+ThrottlerModule.forRoot([
+	{
+		ttl: 60000,
+		limit: 100,
+	},
+]),
+
+Example:
+
+@Module({
+	imports: [
+
+		ConfigModule.forRoot({
+			isGlobal: true,
+			cache: true,
+			load: [
+				appConfig,
+				databaseConfig,
+				jwtConfig,
+			],
+			validationSchema,
+		}),
+
+
+		ThrottlerModule.forRoot([
+			{
+				ttl: 60000,
+				limit: 100,
+			},
+		]),
+
+
+		AuthModule,
+		PrismaModule,
+		UsersModule,
+		ProductsModule,
+		OrdersModule,
+		CategoriesModule,
+		ProfileModule,
+		InventoryModule,
+		CartModule,
+		CheckoutModule,
+		PaymentModule,
+	],
+})
+export class AppModule {}
+Step 3 — Enable Global Guard
+
+Now create global throttler protection.
+
+Open:
+
+src/app.module.ts
+
+Add import:
+
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
+
+Update providers:
+
+providers: [
+
+	{
+		provide: APP_GUARD,
+		useClass: ThrottlerGuard,
+	},
+
+	AppService,
+
+],
+
+Now every API automatically has rate limiting.
+
+Step 4 — Test
+
+Restart:
+
+npm run start:dev
+
+Call any endpoint repeatedly:
+
+Example:
+
+GET /products
+
+After 100 requests/min:
+
+Response:
+
+{
+	"success": false,
+	"statusCode": 429,
+	"message": "ThrottlerException: Too Many Requests",
+	"timestamp": "2026-07-31T...",
+	"path": "/products"
+}
+Step 5 — Customize Auth APIs
+
+Now we protect sensitive APIs more aggressively.
+
+Example:
+
+POST /auth/login
+
+Open:
+
+src/modules/auth/auth.controller.ts
+
+Add:
+
+import { Throttle } from '@nestjs/throttler';
+
+Example:
+
+@Post('login')
+@Throttle({
+	default: {
+		limit: 5,
+		ttl: 60000,
+	},
+})
+async login(
+	@Body() dto: LoginDto,
+) {
+	return this.authService.login(dto);
+}
+
+Meaning:
+
+5 login attempts
+per minute
+per client
+Step 6 — Protect Checkout
+
+Open:
+
+checkout.controller.ts
+
+Add:
+
+import { Throttle } from '@nestjs/throttler';
+
+Example:
+
+@Post()
+@UseGuards(JwtAuthGuard)
+@Throttle({
+	default: {
+		limit: 20,
+		ttl: 60000,
+	},
+})
+checkout(
+	@CurrentUser() user: JwtPayload,
+) {
+	return this.checkoutService.checkout(user);
+}
+Step 7 — Build Verification
+
+Run:
+
+npm run build
+Current Sprint 8 Security Status
+Feature	Status
+Global Exception Filter	✅
+Response Wrapper	✅
+Config Module	✅
+Helmet	✅
+CORS Hardening	✅
+Rate Limiting	🔄 Current
+Input Sanitization	⏳
+Swagger	⏳
+Docker	⏳
+CI/CD	⏳
+
+Complete Steps 1-3 first (global throttling).
+After build passes, we will fine-tune endpoint-level limits for Auth + Checkout + Payment.
+
+Done - Complete Steps 1-3 first (global throttling).
+
+Excellent. ✅ Global Rate Limiting is now implemented.
+
+Current protection:
+
+All APIs
+   |
+   |
+ThrottlerGuard
+   |
+   |
+100 requests / 60 seconds / client
+
+This gives ShopSphere a baseline DoS / abuse protection layer.
+
+Next Step — Endpoint Specific Limits
+
+Now we tune sensitive APIs.
+
+Global:
+
+limit: 100
+ttl: 60000
+
+is okay for:
+
+Products
+Categories
+Inventory browsing
+Profile reads
+
+But these need stricter rules:
+
+Endpoint	Limit	Reason
+Login	5/min	Prevent brute force
+Register	5/min	Prevent account spam
+Refresh Token	10/min	Prevent token abuse
+Checkout	20/min	Prevent order flooding
+Payment	10/min	Prevent payment abuse
+Step 4 — Protect Auth APIs
+
+Open:
+
+src/modules/auth/auth.controller.ts
+
+Add:
+
+import { Throttle } from '@nestjs/throttler';
+Login
+
+Find:
+
+@Post('login')
+
+Change:
+
+@Post('login')
+@Throttle({
+	default: {
+		limit: 5,
+		ttl: 60000,
+	},
+})
+async login(
+	@Body() dto: LoginDto,
+) {
+	return this.authService.login(dto);
+}
+Register
+
+Find:
+
+@Post('register')
+
+Change:
+
+@Post('register')
+@Throttle({
+	default: {
+		limit: 5,
+		ttl: 60000,
+	},
+})
+async register(
+	@Body() dto: RegisterDto,
+) {
+	return this.authService.register(dto);
+}
+Refresh Token
+
+Find your refresh endpoint:
+
+Example:
+
+@Post('refresh')
+
+Add:
+
+@Throttle({
+	default: {
+		limit: 10,
+		ttl: 60000,
+	},
+})
+Step 5 — Protect Checkout
+
+Open:
+
+src/modules/checkout/checkout.controller.ts
+
+Add:
+
+import { Throttle } from '@nestjs/throttler';
+
+Your endpoint:
+
+@Post()
+@UseGuards(JwtAuthGuard)
+@Throttle({
+	default: {
+		limit: 20,
+		ttl: 60000,
+	},
+})
+async checkout(
+	@CurrentUser() user: JwtPayload,
+) {
+	return this.checkoutService.checkout(user);
+}
+Step 6 — Protect Payment APIs
+
+Open:
+
+src/modules/payment/payment.controller.ts
+
+Example:
+
+@Post()
+@UseGuards(JwtAuthGuard)
+@Throttle({
+	default: {
+		limit: 10,
+		ttl: 60000,
+	},
+})
+createPayment(
+	@CurrentUser() user: JwtPayload,
+) {
+	return this.paymentService.create(user);
+}
+Step 7 — Test Rate Limit
+
+For login:
+
+Run multiple invalid attempts:
+
+curl \
+-X POST http://localhost:3000/auth/login \
+-H "Content-Type: application/json" \
+-d '{"email":"test@test.com","password":"wrong"}'
+
+After 5 attempts:
+
+Expected:
+
+{
+    "success": false,
+    "statusCode": 429,
+    "message": "ThrottlerException: Too Many Requests",
+    "timestamp": "...",
+    "path": "/auth/login"
+}
+Step 8 — Build
+
+Run:
+
+npm run build
+
+After this, Rate Limiting will be fully completed.
+
+===
+
+Step 1 — Verify Global ValidationPipe
+
+Open:
+
+src/main.ts
+
+Confirm you have:
+
+app.useGlobalPipes(
+	new ValidationPipe({
+		whitelist: true,
+		forbidNonWhitelisted: true,
+		transform: true,
+	}),
+);
+Why?
+whitelist
+
+Removes unknown fields.
+
+Example request:
+
+{
+  "email": "test@test.com",
+  "password": "Password1",
+  "isAdmin": true
+}
+
+Without whitelist:
+
+{
+  "email": "test@test.com",
+  "password": "Password1",
+  "isAdmin": true
+}
+
+With whitelist:
+
+{
+  "email": "test@test.com",
+  "password": "Password1"
+}
+forbidNonWhitelisted
+
+Instead of silently removing:
+
+Request:
+
+{
+ "email":"test@test.com",
+ "hackField":"123"
+}
+
+Response:
+
+{
+ "success":false,
+ "statusCode":400,
+ "message":"property hackField should not exist"
+}
+
+This is better for security.
+
+Step 2 — Add TransformPipe globally
+
+You already use:
+
+transform:true
+
+This enables:
+
+Example:
+
+DTO:
+
+@Type(() => Number)
+quantity:number;
+
+Request:
+
+{
+ "quantity":"5"
+}
+
+Converted:
+
+quantity = 5
+Step 3 — Review Email Sanitization
+
+Your register DTO already has:
+
+@Transform(({value}) =>
+	value.trim().toLowerCase()
+)
+@IsEmail()
+email:string;
+
+Excellent.
+
+Example:
+
+Input:
+
+  USER@GMAIL.COM
+
+Stored:
+
+user@gmail.com
+
+Prevents duplicate accounts:
+
+User@gmail.com
+user@gmail.com
+Step 4 — Password Sanitization
+
+Important rule:
+
+❌ Never trim passwords.
+
+Example:
+
+User password:
+
+MyPass 123
+
+The space may be intentional.
+
+Do:
+
+@IsString()
+@MinLength(6)
+password:string;
+
+Do NOT:
+
+@Transform(({value})=>value.trim())
+Step 5 — Add String Length Protection
+
+Review DTOs.
+
+Example:
+
+Product DTO:
+
+Before:
+
+name:string;
+description:string;
+
+Better:
+
+@IsString()
+@MaxLength(100)
+name:string;
+
+
+@IsString()
+@MaxLength(500)
+description:string;
+
+Reason:
+
+Prevents:
+
+Huge payload attacks
+Database bloat
+Abuse
+Step 6 — Add Query Parameter Validation
+
+Example:
+
+Products API:
+
+GET /products?page=abc
+
+should not reach database.
+
+Your query DTO should have:
+
+@IsOptional()
+@Type(()=>Number)
+@IsInt()
+@Min(1)
+page:number;
+
+
+@IsOptional()
+@Type(()=>Number)
+@IsInt()
+@Min(1)
+@Max(100)
+limit:number;
+
+Protection:
+
+?page=-100
+
+blocked.
+
+?limit=999999
+
+blocked.
+
+Step 7 — Prevent SQL Injection
+
+Good news:
+
+ShopSphere uses Prisma.
+
+Example:
+
+prisma.user.findUnique({
+ where:{
+   email
+ }
+})
+
+Prisma generates parameterized queries:
+
+SELECT *
+FROM User
+WHERE email=$1
+
+NOT:
+
+SELECT *
+FROM User
+WHERE email='input'
+
+So SQL injection protection is already handled. ✅
+
+Step 8 — Prevent XSS Payload Storage
+
+Example:
+
+User enters:
+
+<script>alert('hack')</script>
+
+For fields like:
+
+product description
+profile bio
+reviews
+
+we should sanitize before storing.
+
+Install:
+
+npm install sanitize-html
+
+Create:
+
+src/common/utils/sanitize.ts
+
+Add:
+
+import sanitizeHtml from 'sanitize-html';
+
+
+export function sanitize(
+	value:string,
+){
+	return sanitizeHtml(value,{
+		allowedTags:[],
+		allowedAttributes:{},
+	});
+}
+
+Example:
+
+Input:
+
+<script>alert(1)</script>
+iPhone Case
+
+Output:
+
+iPhone Case
+Step 9 — Use Sanitization Where Needed
+
+Example Product Create:
+
+Before:
+
+createProduct(dto)
+
+After:
+
+dto.description =
+	sanitize(dto.description);
+
+dto.name =
+	sanitize(dto.name);
+
+
+====
+
+
+Great. 🚀 Sprint 8 — Session 7: Swagger / OpenAPI Documentation
+
+This is the right time to add Swagger because:
+
+✅ All major modules exist
+✅ DTOs are already created
+✅ Validation decorators are available
+✅ JWT authentication is implemented
+✅ Exception format is standardized
+
+Swagger will automatically generate professional API documentation for ShopSphere.
+
+Step 1 — Install Swagger Packages
+
+Run:
+
+npm install @nestjs/swagger swagger-ui-express
+Step 2 — Configure Swagger in main.ts
+
+Open:
+
+src/main.ts
+
+Add import:
+
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+
+After:
+
+const app = await NestFactory.create(AppModule);
+
+Add:
+
+const config = new DocumentBuilder()
+	.setTitle('ShopSphere API')
+	.setDescription(
+		'Production-ready eCommerce API built with NestJS',
+	)
+	.setVersion('1.0')
+	.addBearerAuth()
+	.build();
+
+
+const document =
+	SwaggerModule.createDocument(
+		app,
+		config,
+	);
+
+
+SwaggerModule.setup(
+	'api/docs',
+	app,
+	document,
+);
+
+Now your Swagger URL will be:
+
+http://localhost:3000/api/docs
+Step 3 — Add DTO Documentation
+
+Swagger works automatically, but to make it professional we should add @ApiProperty.
+
+Example:
+
+Current:
+
+export class CreateProductDto {
+
+	name:string;
+
+	description:string;
+
+	price:number;
+
+}
+
+Improve:
+
+import { ApiProperty } from '@nestjs/swagger';
+
+
+export class CreateProductDto {
+
+
+	@ApiProperty({
+		example: 'iPhone 17 Case',
+		description: 'Product display name',
+	})
+	name:string;
+
+
+	@ApiProperty({
+		example: 'Premium MagSafe compatible case',
+		description: 'Product description',
+	})
+	description:string;
+
+
+	@ApiProperty({
+		example: 39,
+		description: 'Product price',
+	})
+	price:number;
+
+}
+
+Swagger now shows:
+
+POST /products
+
+Body:
+
+{
+  "name": "iPhone 17 Case",
+  "description": "Premium MagSafe compatible case",
+  "price": 39
+}
+Step 4 — Add Controller Tags
+
+Example:
+
+products.controller.ts
+
+Before:
+
+@Controller('products')
+export class ProductsController
+
+After:
+
+import { ApiTags } from '@nestjs/swagger';
+
+
+@ApiTags('Products')
+@Controller('products')
+export class ProductsController
+
+Swagger groups:
+
+Products
+ ├── POST /products
+ ├── GET /products
+ ├── GET /products/:id
+ └── PATCH /products/:id
+
+Add tags to all modules:
+
+Controller	Tag
+AuthController	Auth
+UsersController	Users
+ProductsController	Products
+CategoriesController	Categories
+InventoryController	Inventory
+CartController	Cart
+CheckoutController	Checkout
+OrdersController	Orders
+PaymentController	Payment
+Step 5 — Enable JWT Authorization
+
+We already added:
+
+.addBearerAuth()
+
+Now Swagger UI will show:
+
+Authorize 🔒
+
+You paste:
+
+Bearer eyJhbGciOiJIUzI1...
+
+Then protected APIs work directly from Swagger.
+
+Step 6 — Add Response Documentation
+
+Example:
+
+@ApiResponse({
+	status:200,
+	description:'Product fetched successfully',
+})
+
+Example:
+
+@Get(':id')
+@ApiResponse({
+	status:200,
+	description:'Returns product details',
+})
+async findOne(
+	@Param('id') id:string
+)
+Step 7 — Run Application
+npm run start:dev
+
+Open:
+
+http://localhost:3000/api/docs
+
+You should see:
+
+ShopSphere API
+
+Auth
+Cart
+Categories
+Checkout
+Inventory
+Orders
+Payment
+Products
+Users
+
+
+====
+
+
+
+Questions 
+
+alternative and best practises of throttle and how to test it using huge payloads
+why not using JOI in our dtos
+
+
+===
+
+
+Excellent. 🚀 Sprint 8 — Session 8: Docker Containerization
+
+This is the next logical step because now ShopSphere has:
+
+✅ Business modules completed
+✅ Security hardening completed
+✅ Configuration management completed
+✅ Swagger documentation completed
+
+Docker will give us:
+
+Same environment on every machine
+Easier deployment
+CI/CD readiness
+Production-like local setup
+Docker Implementation Plan
+
+We will containerize:
+
+ShopSphere
+│
+├── Backend (NestJS)
+│
+├── PostgreSQL
+│
+└── Future:
+    ├── Redis
+    ├── Kafka
+    └── Nginx
+
+For this sprint we will do:
+
+Dockerfile for NestJS backend
+docker-compose.yml
+PostgreSQL container
+Environment handling
+Prisma migration inside container
+Build verification
+Step 1 — Create Dockerfile
+
+At backend root:
+
+backend/
+│
+├── Dockerfile
+├── package.json
+├── prisma/
+├── src/
+└── tsconfig.json
+
+Create:
+
+Dockerfile
+
+Add:
+
+# ============================
+# Build Stage
+# ============================
+
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+
+COPY package*.json ./
+
+
+RUN npm install
+
+
+COPY . .
+
+
+RUN npm run build
+
+
+
+# ============================
+# Production Stage
+# ============================
+
+FROM node:22-alpine
+
+
+WORKDIR /app
+
+
+COPY package*.json ./
+
+
+RUN npm install --omit=dev
+
+
+COPY --from=builder /app/dist ./dist
+
+
+COPY --from=builder /app/prisma ./prisma
+
+
+EXPOSE 3000
+
+
+CMD ["node", "dist/src/main.js"]
+Important Note
+
+Remember your previous build issue:
+
+dist/src/main.js
+
+not:
+
+dist/main.js
+
+So Docker command is:
+
+CMD ["node", "dist/src/main.js"]
+
+This matches your current Nest build output.
+
+Step 2 — Create .dockerignore
+
+Create:
+
+.dockerignore
+
+Add:
+
+node_modules
+dist
+.git
+.env
+*.log
+
+Why?
+
+We don't copy:
+
+Local dependencies
+Old build files
+Secrets
+Git history
+Step 3 — Create docker-compose.yml
+
+At backend root:
+
+docker-compose.yml
+
+Add:
+
+version: '3.8'
+
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: shopsphere-postgres
+    restart: always
+
+    environment:
+      POSTGRES_USER: shopsphere
+      POSTGRES_PASSWORD: shopsphere
+      POSTGRES_DB: shopsphere
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+
+  backend:
+    build:
+      context: .
+
+    container_name: shopsphere-backend
+
+    restart: always
+
+    ports:
+      - "3000:3000"
+
+    environment:
+
+      DATABASE_URL:
+        postgresql://shopsphere:shopsphere@postgres:5432/shopsphere
+
+      JWT_SECRET:
+        docker-secret-key
+
+      JWT_EXPIRES_IN:
+        15m
+
+
+    depends_on:
+      - postgres
+
+
+
+volumes:
+
+  postgres_data:
+Step 4 — Update Database Connection
+
+Important change:
+
+Local:
+
+localhost
+
+Docker:
+
+postgres
+
+Because Docker services communicate by service name.
+
+Your container database URL:
+
+DATABASE_URL=postgresql://shopsphere:shopsphere@postgres:5432/shopsphere
+
+NOT:
+
+DATABASE_URL=postgresql://localhost:5432/shopsphere
+Step 5 — Build Containers
+
+Run:
+
+docker compose build
+
+Expected:
+
+✔ backend built
+✔ postgres image pulled
+Step 6 — Start Containers
+
+Run:
+
+docker compose up
+
+Expected:
+
+shopsphere-postgres started
+
+shopsphere-backend started
+
+Nest application successfully started
+Step 7 — Verify
+
+Open:
+
+http://localhost:3000/api/docs
+
+Swagger should load.
+
+Test:
+
+GET /products
+Step 8 — Prisma Migration
+
+Inside backend container:
+
+docker exec -it shopsphere-backend sh
+
+Then:
+
+npx prisma migrate deploy
+Docker Sprint Outcome
+
+After completion:
+
+docker compose up
+        |
+        |
+        +---- PostgreSQL
+        |
+        +---- NestJS API
+
+Anyone can clone:
+
+git clone ShopSphere
+
+docker compose up
+
+and run the complete backend.
+
+Your first task
+
+Let's do only:
+
+✅ Step 1 — Create Dockerfile
+✅ Step 2 — Create .dockerignore
+
+After creating them, share your files and we will validate before moving to docker-compose.yml. 🚀
+
+===
+
+Few docker commands 
+
+docker compose config
+docker compose down [to down the docker container along without removing its volume]
+docker compose build
+docker compose up
+docker compose down -v [to down the docker container along with removing its volume]
+
+going inside the container
+docker exec -it shopsphere-postgres psql -U postgres -d shopsphere
+
+docker builder prune -af
+
+docker images
+
+docker rmi backend-backend
+
+==
+
+
+Production Hardening Phase 2
+
+☐ PostgreSQL healthcheck
+☐ Redis healthcheck
+☐ Kafka healthcheck
+☐ Container resource limits
+☐ Graceful shutdown handling
+☐ Log aggregation
+☐ Monitoring
+
+====
+
+Seed [For data insertion]
+
+For ShopSphere, I recommend not running seed on every production container restart because it can create duplicate data. Instead:
+
+migrate deploy → always runs ✅
+seed → run only when explicitly required ✅
+Step 1 — Create Prisma Seed File
+
+Create:
+
+prisma/seed.ts
+
+Example:
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+
+  console.log('🌱 Starting database seed...');
+
+
+  // Create category
+  const category = await prisma.category.upsert({
+    where: {
+      name: 'Mobile Accessories',
+    },
+    update: {},
+    create: {
+      name: 'Mobile Accessories',
+    },
+  });
+
+
+  // Create product
+  await prisma.product.upsert({
+    where: {
+      name: 'iPhone 17 Case',
+    },
+    update: {},
+    create: {
+      name: 'iPhone 17 Case',
+      price: 39,
+      categoryId: category.id,
+    },
+  });
+
+
+  console.log('🌱 Database seed completed');
+}
+
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+Step 2 — Add Seed Configuration in package.json
+
+Add:
+
+"prisma": {
+  "seed": "ts-node prisma/seed.ts"
+}
+
+Example:
+
+{
+  "scripts": {
+    "start": "nest start",
+    "build": "nest build"
+  },
+
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  }
+}
+Step 3 — Install ts-node (if not already installed)
+
+Run:
+
+npm install -D ts-node
+Step 4 — Test Seed Locally First
+
+Before Docker:
+
+Run:
+
+npx prisma db seed
+
+Expected:
+
+🌱 Starting database seed...
+🌱 Database seed completed
+
+Verify:
+
+select * from "Category";
+
+select * from "Product";
+Step 5 — Add Optional Seed to docker-entrypoint.sh
+
+Update:
+
+#!/bin/sh
+
+set -e
+
+echo "Starting ShopSphere Backend..."
+
+echo "Running Prisma migrations..."
+
+npx prisma migrate deploy
+
+
+if [ "$RUN_SEED" = "true" ]; then
+
+    echo "Running database seed..."
+
+    npx prisma db seed
+
+else
+
+    echo "Skipping database seed..."
+
+fi
+
+
+echo "Starting NestJS application..."
+
+node dist/src/main.js
+Step 6 — Add Environment Flag
+
+Your .env.docker:
+
+DATABASE_URL=postgresql://postgres:12345@postgres:5432/shopsphere
+
+JWT_SECRET=docker-secret-key
+
+JWT_EXPIRES_IN=15m
+
+RUN_SEED=false
+When you need seed data
+
+For fresh environment:
+
+Change:
+
+RUN_SEED=true
+
+Then:
+
+docker compose up --build
+
+It will:
+
+Migration
+   ↓
+Seed
+   ↓
+Start API
+Production recommendation for ShopSphere
+
+For real deployment:
+
+Development
+RUN_SEED=true
+
+Useful for:
+
+Admin user
+Categories
+Demo products
+Test inventory
+Staging
+RUN_SEED=true
+
+for initial setup only.
+
+Production
+RUN_SEED=false
+
+because production data should come from:
+
+Admin panel
+Import jobs
+Real business flows
+
+===
+
+Perfect. Before moving to CI/CD, adding centralized logging is the right decision. This will make your Docker, CI/CD, and later Kubernetes troubleshooting much easier.
+
+For ShopSphere, I suggest we keep it simple and production-ready:
+
+NestJS Logger → Pino → JSON logs → Docker stdout
+
+We will not over-engineer with ELK/Grafana yet.
+
+Step 1: Install Pino logger packages
+
+Run:
+
+npm install nestjs-pino pino pino-pretty
+Step 2: Update main.ts
+
+Currently you probably have something like:
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  await app.listen(3000);
+}
+
+bootstrap();
+
+Replace with:
+
+import { Logger } from 'nestjs-pino';
+
+async function bootstrap() {
+
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  app.useLogger(app.get(Logger));
+
+  await app.listen(3000);
+}
+
+bootstrap();
+Step 3: Update app.module.ts
+
+Add LoggerModule.
+
+Example:
+
+import { LoggerModule } from 'nestjs-pino';
+
+
+@Module({
+  imports: [
+
+    LoggerModule.forRoot({
+
+      pinoHttp: {
+
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            singleLine: true,
+          },
+        },
+
+        level: 'info',
+
+      },
+
+    }),
+
+
+    ConfigModule.forRoot({
+      isGlobal:true
+    }),
+
+
+    PrismaModule,
+
+    ProductsModule,
+
+    AuthModule,
+
+  ],
+})
+export class AppModule {}
+Step 4: Add global exception logging filter
+
+Create:
+
+src/common/filters/all-exceptions.filter.ts
+
+Add:
+
+import {
+	ArgumentsHost,
+	Catch,
+	ExceptionFilter,
+	HttpException,
+	Logger,
+} from '@nestjs/common';
+
+
+@Catch()
+export class AllExceptionsFilter 
+implements ExceptionFilter {
+
+
+	private readonly logger = new Logger(
+		'GlobalException'
+	);
+
+
+	catch(exception: unknown, host: ArgumentsHost) {
+
+
+		const ctx = host.switchToHttp();
+
+		const response = ctx.getResponse();
+
+		const request = ctx.getRequest();
+
+
+		const status =
+			exception instanceof HttpException
+				? exception.getStatus()
+				: 500;
+
+
+
+		const message =
+			exception instanceof HttpException
+				? exception.message
+				: 'Internal server error';
+
+
+
+		this.logger.error({
+
+			method: request.method,
+
+			url: request.url,
+
+			statusCode: status,
+
+			message,
+
+			stack:
+				exception instanceof Error
+					? exception.stack
+					: undefined,
+
+		});
+
+
+
+		response.status(status).json({
+
+			success:false,
+
+			statusCode:status,
+
+			message,
+
+			timestamp:new Date().toISOString(),
+
+			path:request.url,
+
+		});
+
+
+	}
+
+}
+Step 5: Register filter globally in main.ts
+
+Add:
+
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+
+
+async function bootstrap() {
+
+ const app = await NestFactory.create(
+   AppModule,
+   {
+     bufferLogs:true
+   }
+ );
+
+
+ app.useLogger(app.get(Logger));
+
+
+ app.useGlobalFilters(
+    new AllExceptionsFilter()
+ );
+
+
+ await app.listen(3000);
+
+}
+Step 6: Test the previous error scenario
+
+Temporarily break sanitize:
+
+Example:
+
+dto.name = sanitize(undefined);
+
+Call:
+
+POST /products
+
+Now Docker logs should show:
+
+ERROR [GlobalException]
+
+{
+ method: "POST",
+ url: "/products",
+ statusCode:500,
+ message:"sanitizeHtml is not a function",
+ stack:"TypeError..."
+}
+
+And API response remains clean:
+
+{
+ "success":false,
+ "statusCode":500,
+ "message":"Internal server error.",
+ "timestamp":"...",
+ "path":"/products"
+}
+Step 7: Docker verification
+
+After rebuilding:
+
+docker compose down
+
+docker compose build
+
+docker compose up
+
+Then:
+
+docker logs -f shopsphere-backend
+
+You should see application logs and errors together.
+
+One small improvement before CI/CD
+
+I recommend adding environment-based logging:
+
+Development:
+
+LOG_LEVEL=debug
+
+Production:
+
+LOG_LEVEL=info
+
+Then in Pino:
+
+level: process.env.LOG_LEVEL || 'info'
+
+After this, your ShopSphere backend will have:
+
+✅ Structured logging
+✅ Central exception handling
+✅ Docker-friendly logs
+✅ CI/CD friendly diagnostics
+✅ Production-ready error tracking foundation
+
+Then we can move to the next phase:
+
+===
+
+globla logging is working here is the output
+
+shopsphere-backend|[
+  21: 27: 38.096
+]DEBUG(152): Creatingproduct{
+  "req": {
+    "id": 2,
+    "method": "POST",
+    "url": "/products",
+    "query": {
+      
+    },
+    "params": {
+      "path": [
+        "products"
+      ]
+    },
+    "headers": {
+      "content-type": "application/json",
+      "x-gateway-apikey": "[Redacted]",
+      "authorization": "[Redacted]",
+      "user-agent": "PostmanRuntime/7.54.0",
+      "accept": "*/*",
+      "cache-control": "no-cache",
+      "postman-token": "164c828d-d6a3-4d12-ae6a-7c8f0b6fb823",
+      "host": "localhost:3000",
+      "accept-encoding": "gzip, deflate, br",
+      "connection": "keep-alive",
+      "content-length": "185",
+      "cookie": "[Redacted]"
+    },
+    "remoteAddress": "::ffff:192.168.65.1",
+    "remotePort": 16145
+  },
+  "context": "ProductsService"
+}

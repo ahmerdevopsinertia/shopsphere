@@ -6,12 +6,13 @@ import { ProductQueryDto } from './dto/product-query-dto';
 import { Roles } from 'src/common/decorators/roles.decorators';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-
+import { ApiResponse, ApiTags } from '@nestjs/swagger';
 @Controller('products')
 export class ProductsController {
 
 	constructor(private readonly productService: ProductsService) { }
 
+	@ApiTags('Products')
 	@Post()
 	@UseGuards(
 		JwtAuthGuard,
@@ -23,11 +24,19 @@ export class ProductsController {
 	}
 
 	@Get(':id')
+	@ApiResponse({
+		status:200,
+		description:'Product fetched successfully',
+	})
 	findById(@Param('id') id: string): Promise<ProductResponseDto> {
 		return this.productService.findById(id);
 	}
 
 	@Get()
+	@ApiResponse({
+		status:200,
+		description:'Products listed successfully',
+	})
 	findAll(@Query() query: ProductQueryDto): Promise<ProductResponseDto> {
 		return this.productService.findAll(query.page ?? 1, query.limit ?? 10, query.search ?? '');
 	}

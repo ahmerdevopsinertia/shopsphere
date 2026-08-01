@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { CategoriesRepository } from './categories.repository';
 import { CategoryResponseDto } from './dto/category-response.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { sanitize } from 'src/common/utils/sanitize';
 
 @Injectable()
 export class CategoriesService {
@@ -16,6 +17,8 @@ export class CategoriesService {
 	async create(
 		dto: CreateCategoryDto,
 	): Promise<CategoryResponseDto> {
+
+		dto.name = sanitize(dto.name);
 
 		const slug =
 			this.generateSlug(dto.name);

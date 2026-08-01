@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthService } from './modules/auth/auth.service';
 import { AuthController } from './modules/auth/auth.controller';
 import { UsersController } from './modules/users/users.controller';
 import { UsersService } from './modules/users/users.service';
@@ -20,11 +19,68 @@ import { CartModule } from './modules/cart/cart.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { PaymentModule } from './modules/payment/payment.module';
 
+import appConfig from './config/app.config';
+import databaseConfig from './config/database.config';
+import jwtConfig from './config/jwt.config';
+
+import { validationSchema } from './config/validation';
+
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
+import { ConfigService } from '@nestjs/config';
+
 @Module({
   imports: [
+    LoggerModule.forRootAsync({
+      imports: [ConfigModule],
+
+      inject: [ConfigService],
+
+      useFactory: (
+        configService: ConfigService,
+      ) => ({
+        pinoHttp: {
+
+          transport: {
+            target: 'pino-pretty',
+            options: {
+              colorize: true,
+              singleLine: true,
+            },
+          },
+
+          level:
+            configService.get<string>(
+              'app.logLevel',
+            ) || 'info',
+
+          // 🔒 Hide sensitive headers
+          redact: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers.x-gateway-apikey',
+          ],
+        },
+      }),
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
+      cache: true,
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+      ],
+      validationSchema
     }),
+    ThrottlerModule.forRoot(
+      [
+        {
+          ttl: 6000,
+          limit: 100
+        }
+      ]),
     AuthModule,
     PrismaModule,
     UsersModule,
@@ -38,6 +94,11 @@ import { PaymentModule } from './modules/payment/payment.module';
     PaymentModule,
   ],
   controllers: [AppController, AuthController, UsersController],
-  providers: [AppService, UsersService, ProductsService, JwtService],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    AppService, UsersService, ProductsService, JwtService],
 })
 export class AppModule { }

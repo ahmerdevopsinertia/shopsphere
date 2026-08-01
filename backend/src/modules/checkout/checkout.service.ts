@@ -7,6 +7,7 @@ import { OrderResponseDto } from '../orders/dto/order-response.dto';
 import { ProductStatus } from '@prisma/client';
 import { ValidatedOrderItem } from 'validated-order-item.interface';
 import { CheckoutRepository } from './checkout.repository';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class CheckoutService {
@@ -17,7 +18,15 @@ export class CheckoutService {
 		private readonly checkoutRepository: CheckoutRepository
 	) { }
 
+	private readonly logger = new Logger(
+		CheckoutService.name,
+	);
+
 	async checkout(user: JwtPayload): Promise<OrderResponseDto> {
+		this.logger.log(
+			`Checkout started for user ${user.sub}`,
+		);
+
 		// Load User Cart
 		const cart = await this.cartRepository.findByUserId(user.sub);
 
@@ -62,6 +71,10 @@ export class CheckoutService {
 				);
 
 			if (!inventory) {
+				this.logger.error(
+					'Checkout failed',
+					"error.stack",
+				);
 				throw new NotFoundException(
 					'Inventory not found.',
 				);
@@ -72,6 +85,9 @@ export class CheckoutService {
 				inventory.quantity - inventory.reserved;
 
 			if (item.quantity > available) {
+				this.logger.warn(
+					`Insufficient inventory for product ${item.productId}`,
+				);
 				throw new BadRequestException(
 					'Insufficient stock.',
 				);
@@ -96,6 +112,10 @@ export class CheckoutService {
 			cart.id,
 			validatedItems,
 			totalAmount,
+		);
+
+		this.logger.log(
+			`Order ${order.id} created successfully.`,
 		);
 
 		return {
