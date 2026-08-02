@@ -29,6 +29,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
+import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module';
+import { RefreshTokenService } from './modules/refresh-token/refresh-token.service';
 
 @Module({
   imports: [
@@ -60,6 +62,7 @@ import { ConfigService } from '@nestjs/config';
             'req.headers.authorization',
             'req.headers.cookie',
             'req.headers.x-gateway-apikey',
+             'req.body.refreshToken',
           ],
         },
       }),
@@ -92,6 +95,7 @@ import { ConfigService } from '@nestjs/config';
     CartModule,
     CheckoutModule,
     PaymentModule,
+    RefreshTokenModule,
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [

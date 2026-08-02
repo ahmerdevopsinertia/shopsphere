@@ -104,7 +104,7 @@ config/
 
 Move all
 
-process.env.JWT_SECRET
+process.env.JWT_ACCESS_SECRET
 process.env.PORT
 process.env.DATABASE_URL
 
@@ -1555,10 +1555,10 @@ services:
       DATABASE_URL:
         postgresql://shopsphere:shopsphere@postgres:5432/shopsphere
 
-      JWT_SECRET:
+      JWT_ACCESS_SECRET:
         docker-secret-key
 
-      JWT_EXPIRES_IN:
+      JWT_ACCESS_EXPIRES_IN:
         15m
 
 
@@ -1837,9 +1837,9 @@ Your .env.docker:
 
 DATABASE_URL=postgresql://postgres:12345@postgres:5432/shopsphere
 
-JWT_SECRET=docker-secret-key
+JWT_ACCESS_SECRET=docker-secret-key
 
-JWT_EXPIRES_IN=15m
+JWT_ACCESS_EXPIRES_IN=15m
 
 RUN_SEED=false
 When you need seed data
@@ -2170,6 +2170,19 @@ Then we can move to the next phase:
 ===
 
 globla logging is working here is the output
+
+also 
+
+Never log refresh tokens.
+
+Add these fields to your logger redaction:
+
+redact:[
+ 'req.headers.authorization',
+ 'req.headers.cookie',
+ 'req.headers.x-gateway-apikey',
+ 'req.body.refreshToken'
+]
 
 shopsphere-backend|[
   21: 27: 38.096

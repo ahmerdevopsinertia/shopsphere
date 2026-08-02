@@ -5,4 +5,5 @@ export class LoginResponseDto {
 		role: string,
 	}
 	accessToken: string;
+	refreshToken: string;
 }
