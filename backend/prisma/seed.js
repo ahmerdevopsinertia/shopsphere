@@ -8,12 +8,10 @@ async function main() {
 
 	console.log('🌱 Running production seed...');
 
-
 	const adminPassword = await bcrypt.hash(
 		'Admin@123',
 		10
 	);
-
 
 	await prisma.user.upsert({
 		where: {
@@ -29,6 +27,31 @@ async function main() {
 
 
 	console.log('✅ Admin created');
+  
+
+	// ============================
+  // User 
+  // ============================
+
+  const userPassword = await bcrypt.hash(
+		'User@123',
+		10
+	);
+
+	await prisma.user.upsert({
+		where: {
+			email: 'userone@example.com'
+		},
+		update: {},
+		create: {
+			email: 'userone@example.com',
+			passwordHash: userPassword,
+			role: Role.CUSTOMER
+		}
+	});
+
+
+	console.log('✅ User created');
 
 	// ============================
   // Categories
