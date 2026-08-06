@@ -2218,3 +2218,356 @@ shopsphere-backend|[
   },
   "context": "ProductsService"
 }
+
+===
+
+POST /auth/logout
+
+UPDATE RefreshToken
+SET revoked=true
+WHERE userId=currentUser
+
+
+===
+
+Good catch. 👍 Before freezing Sprint 8 and moving to CI/CD, I agree we should not leave authentication incomplete.
+
+A production-ready authentication flow should include:
+
+✅ Register
+✅ Login
+✅ Access Token generation
+❌ Refresh Token API (missing)
+❌ Logout / revoke refresh token (future enhancement)
+
+Since we already made architectural decisions earlier:
+
+ADR-005: Access Token + Refresh Token Strategy
+ADR-006: Hash Refresh Tokens Before Storing
+
+we should implement the refresh token flow now and then create the Sprint 8 tag after that.
+
+Current Auth Flow
+
+Currently you probably have:
+
+User
+ |
+ | email + password
+ ↓
+POST /auth/login
+ |
+ ↓
+Validate credentials
+ |
+ ↓
+Generate JWT Access Token
+ |
+ ↓
+Return token
+
+The problem:
+
+Access tokens are short-lived. Example:
+
+ACCESS_TOKEN_EXPIRES_IN=15m
+
+After 15 minutes the user is forced to login again.
+
+Target Production Flow
+
+We should implement:
+
+POST /auth/login
+
+Response:
+
+{
+  "accessToken": "...",
+  "refreshToken": "..."
+}
+
+Then:
+
+POST /auth/refresh
+
+Request:
+
+{
+  "refreshToken": "xxxx"
+}
+
+
+Response:
+
+{
+  "accessToken": "new token",
+  "refreshToken": "new refresh token"
+}
+Database Change Required
+
+Your current User model:
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CUSTOMER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile UserProfile?
+  orders Order[]
+  cart Cart?
+}
+
+We should add a refresh token table instead of storing it directly.
+
+Why?
+
+Because later we can support:
+
+multiple devices
+revoke individual sessions
+logout from all devices
+
+Add:
+
+model RefreshToken {
+
+  id String @id @default(uuid())
+
+  tokenHash String
+
+  userId String
+
+  user User @relation(
+    fields:[userId],
+    references:[id],
+    onDelete:Cascade
+  )
+
+  expiresAt DateTime
+
+  revoked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+Then migration:
+
+npx prisma migrate dev --name add_refresh_token
+Auth Service Changes
+
+Login becomes:
+
+async login(dto: LoginDto){
+
+ const user =
+   await this.usersRepository.findByEmail(dto.email);
+
+
+ if(!user){
+   throw new UnauthorizedException();
+ }
+
+
+ const passwordMatch =
+   await bcrypt.compare(
+      dto.password,
+      user.passwordHash
+   );
+
+
+ if(!passwordMatch){
+    throw new UnauthorizedException();
+ }
+
+
+ const tokens =
+   await this.generateTokens(user);
+
+
+ await this.saveRefreshToken(
+    user.id,
+    tokens.refreshToken
+ );
+
+
+ return tokens;
+}
+Token Generation
+
+Create:
+
+private async generateTokens(user){
+
+ const payload={
+   sub:user.id,
+   email:user.email,
+   role:user.role
+ };
+
+
+ const accessToken =
+ await this.jwtService.signAsync(
+    payload,
+    {
+      expiresIn:'15m'
+    }
+ );
+
+
+ const refreshToken =
+ await this.jwtService.signAsync(
+    payload,
+    {
+      expiresIn:'7d'
+    }
+ );
+
+
+ return {
+    accessToken,
+    refreshToken
+ };
+}
+Important Part: Hash Refresh Token
+
+Following ADR-006:
+
+Never store:
+
+eyJhbGciOiJIUz...
+
+directly.
+
+Store:
+
+8f7a92a3d8c....
+
+Example:
+
+const hash =
+ await bcrypt.hash(
+    refreshToken,
+    10
+ );
+
+
+await prisma.refreshToken.create({
+ data:{
+   userId:user.id,
+   tokenHash:hash,
+   expiresAt:
+    new Date(Date.now()+7*24*60*60*1000)
+ }
+});
+New Endpoint
+
+Auth Controller:
+
+@Post('refresh')
+refresh(
+ @Body() dto:RefreshTokenDto
+){
+ return this.authService.refresh(
+    dto.refreshToken
+ );
+}
+
+DTO:
+
+export class RefreshTokenDto {
+
+ @IsNotEmpty()
+ refreshToken:string;
+
+}
+Refresh Logic
+
+Flow:
+
+Receive refresh token
+        |
+        |
+Find active token records
+        |
+        |
+bcrypt.compare()
+        |
+        |
+Generate new tokens
+        |
+        |
+Rotate refresh token
+Should we add Logout now?
+
+I would say yes but simple version.
+
+Endpoint:
+
+POST /auth/logout
+
+Action:
+
+UPDATE RefreshToken
+SET revoked=true
+WHERE userId=currentUser
+
+This completes the authentication lifecycle.
+
+Updated Sprint Plan
+
+I suggest:
+
+Finish Sprint 8 with:
+Sprint 8:
+Production Readiness
+
+- Docker
+- Seed
+- Logging
+- Exception Handling
+- Refresh Token Authentication
+- Logout
+
+Then:
+
+Tag:
+sprint-8
+
+===
+
+
+Logout Flow
+Client
+   │
+POST /auth/logout
+   │
+Refresh Token
+   │
+Verify JWT
+   │
+Find Active Refresh Token
+   │
+Compare JTI
+   │
+Revoke Token
+   │
+Return 200
+
+Notice:
+
+We do not delete the refresh token.
+
+We simply mark it:
+
+revoked = true
+
+This preserves the audit trail.

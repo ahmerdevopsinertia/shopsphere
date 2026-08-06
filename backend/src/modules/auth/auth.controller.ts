@@ -6,6 +6,7 @@ import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { Throttle } from '@nestjs/throttler';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { LogoutDto } from './dto/logout-dto';
 
 @Controller('auth')
 export class AuthController {
@@ -38,5 +39,12 @@ export class AuthController {
 		@Body() dto: RefreshTokenDto
 	) {
 		return this.authService.refresh(dto);
+	}
+
+	@Post('logout')
+	logout(
+		@Body() dto: LogoutDto
+	) {
+		return this.authService.logout(dto);
 	}
 }

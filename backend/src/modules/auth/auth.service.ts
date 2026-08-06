@@ -10,6 +10,7 @@ import * as crypto from 'crypto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenService } from '../refresh-token/refresh-token.service';
+import { LogoutDto } from './dto/logout-dto';
 
 @Injectable()
 export class AuthService {
@@ -73,12 +74,14 @@ export class AuthService {
 			);
 		}
 
+		// 3. JWT Payload
 		const accessPayload = {
 			sub: user.id,
 			email: user.email,
 			role: user.role,
 		};
 
+		// 4. Generate Access Token
 		const accessToken =
 			await this.jwtService.signAsync(
 				accessPayload,
@@ -93,6 +96,7 @@ export class AuthService {
 				}
 			);
 
+		// 5. Generate Refresh Token
 		const refreshTokenId =
 			crypto.randomUUID();
 
@@ -116,6 +120,7 @@ export class AuthService {
 			);
 
 
+		// 6. Hash Refresh Token
 		const refreshTokenHash =
 			await bcrypt.hash(
 				refreshTokenId,
@@ -280,10 +285,8 @@ export class AuthService {
 				}
 			);
 
-
 		const refreshTokenId =
 			crypto.randomUUID();
-
 
 		const refreshToken =
 			await this.jwtService.signAsync(
@@ -333,5 +336,107 @@ export class AuthService {
 			refreshToken
 		};
 
+	}
+
+	async logout(
+		dto: LogoutDto
+	) {
+
+		this.logger.debug(
+			'Refresh token validation started'
+		);
+
+		let payload: any;
+
+
+		// 1. Verify refresh token
+		try {
+
+			payload =
+				await this.jwtService.verifyAsync(
+					dto.refreshToken,
+					{
+						secret:
+							this.configService.get(
+								'jwt.refreshSecret'
+							)
+					}
+				);
+
+			this.logger.debug({
+				userId: payload.sub,
+				jti: payload.jti
+			},
+				'Refresh token verified'
+			);
+
+		}
+		catch (error) {
+
+			throw new UnauthorizedException(
+				'Invalid refresh token.'
+			);
+
+		}
+
+		// 2. Get user's active refresh tokens
+
+		const tokens =
+			await this.refreshTokenService
+				.findActiveTokensByUserId(
+					payload.sub
+				);
+
+		// 3. Find matching token
+
+		let storedToken:
+			typeof tokens[number] | null = null;
+
+
+		for (const token of tokens) {
+
+			const isValid =
+				await bcrypt.compare(
+					payload.jti,
+					token.tokenHash
+				);
+
+
+			if (isValid) {
+
+				storedToken = token;
+				break;
+
+			}
+
+		}
+
+
+
+		if (!storedToken) {
+
+			throw new UnauthorizedException(
+				'Refresh token revoked or expired.'
+			);
+
+		}
+
+
+		// 4. Revoke old refresh token
+
+		await this.refreshTokenService.revoke(
+			storedToken.id
+		);
+
+		this.logger.log({
+			userId: payload.sub,
+			tokenId: storedToken.id,
+		},
+			'User logged out');
+
+		return {
+			message:
+				'Logged out successfully.',
+		};
 	}
 }

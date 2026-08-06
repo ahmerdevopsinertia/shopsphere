@@ -38,6 +38,18 @@ export class RefreshTokenRepository {
 
   }
 
+  async findValidToken(tokenHash: string) {
+    return this.prisma.refreshToken.findFirst({
+      where: {
+        tokenHash,
+        revoked: false,
+      },
+      include: {
+        user: true,
+      },
+    });
+  }
+
 
   async revoke(id: string) {
 
@@ -50,5 +62,16 @@ export class RefreshTokenRepository {
       }
     });
 
+  }
+
+  async revokeAll(userId: string) {
+    return this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+      },
+      data: {
+        revoked: true,
+      },
+    });
   }
 }
