@@ -11,7 +11,7 @@ import { LogoutDto } from './dto/logout-dto';
 @Controller('auth')
 export class AuthController {
 	constructor(private readonly authService: AuthService) { }
-
+	// This is a test comment to check the CI/CD workflow
 	@Post('register')
 	@Throttle({
 		default: {
