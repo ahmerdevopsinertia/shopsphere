@@ -1,0 +1,296 @@
+Sprint 9 — Next steps
+
+I recommend we build the pipeline incrementally rather than putting everything into one YAML immediately.
+
+Our target:
+
+                git push
+                   │
+                   ▼
+                GitHub
+                   │
+                   ▼
+          ┌─────────────────┐
+          │ GitHub Actions  │
+          └────────┬────────┘
+                   │
+          ┌────────▼────────┐
+          │ Install npm ci  │
+          └────────┬────────┘
+                   │
+          ┌────────▼────────┐
+          │      Lint       │
+          └────────┬────────┘
+                   │
+          ┌────────▼────────┐
+          │      Tests      │
+          └────────┬────────┘
+                   │
+          ┌────────▼────────┐
+          │     Build       │
+          └────────┬────────┘
+                   │
+          ┌────────▼────────┐
+          │  Docker Build   │
+          └────────┬────────┘
+                   │
+          ┌────────▼────────┐
+          │ Docker Test Run │
+          └────────┬────────┘
+                   │
+                   ▼
+             CI PASSED ✅
+Step 3 — Add Lint
+
+Before changing anything, check your backend/package.json for:
+
+"scripts": {
+  "lint": "...",
+  "test": "...",
+  "build": "..."
+}
+
+If lint already exists, add this immediately after npm ci:
+
+- name: Run lint
+  run: npm run lint
+
+So the current workflow becomes:
+
+name: ShopSphere CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build application
+        run: npm run build
+
+The current GitHub documentation recommends setup-node for selecting Node versions and supports npm dependency caching through the action.
+
+Why I'm changing @v4 → @v6/@v7
+
+Your screenshot's warning is related to the runtime used internally by the Actions themselves, not Node 22 that your application uses.
+
+Current GitHub documentation examples use:
+
+actions/checkout@v6
+actions/setup-node@v7
+
+So let's use the current versions rather than carrying the warning into the production pipeline.
+
+Step 4 — Tests
+
+After lint passes, we'll add:
+
+- name: Run tests
+  run: npm test
+
+But don't add this yet if your project doesn't currently have a reliable test suite.
+
+Given ShopSphere's current stage, I'd actually prefer:
+
+Lint
+ ↓
+Unit Tests
+ ↓
+Build
+
+rather than blindly running tests and potentially discovering that Jest/configuration isn't CI-ready.
+
+Step 5 — Docker build
+
+Once:
+
+npm ci       ✅
+lint         ✅
+tests        ✅
+build        ✅
+
+we'll add Docker.
+
+Since your Docker configuration is already working locally, we'll build the image in GitHub Actions.
+
+Something along the lines of:
+
+- name: Build Docker image
+  run: docker build -t shopsphere-backend:ci .
+
+The exact context depends on where your Dockerfile currently lives.
+
+Don't push the image anywhere yet.
+
+First we'll prove:
+
+GitHub runner can successfully build the same Docker image that works on your Mac.
+
+Step 6 — Run the Docker container
+
+Then we'll go one step further:
+
+Docker Build
+     ↓
+Docker Run
+     ↓
+Health Check
+     ↓
+Stop Container
+
+This is particularly important for ShopSphere because your application has:
+
+PostgreSQL
+Prisma
+JWT configuration
+environment validation
+seed configuration
+Docker networking
+
+We shouldn't consider CI/CD complete just because docker build succeeds.
+
+Step 7 — Docker Registry
+
+After the above works, we'll decide where to publish the image.
+
+For your project, I recommend GitHub Container Registry (GHCR) because your source code is already on GitHub.
+
+Architecture:
+
+GitHub
+   │
+   ├── CI
+   │    ├── npm ci
+   │    ├── lint
+   │    ├── tests
+   │    └── build
+   │
+   └── CD
+        │
+        ├── Docker build
+        │
+        ├── Docker image
+        │
+        └── GHCR
+              │
+              ▼
+       shopsphere-backend
+
+GitHub officially supports publishing Docker images to ghcr.io using GITHUB_TOKEN, so we don't need to introduce Docker Hub credentials unnecessarily.
+
+Step 8 — Production deployment
+
+This should be the last part, not the first.
+
+We'll eventually have:
+
+Developer
+    │
+    │ git push
+    ▼
+GitHub
+    │
+    ▼
+CI
+ ├── npm ci
+ ├── lint
+ ├── test
+ ├── build
+ └── Docker build
+          │
+          ▼
+       GHCR
+          │
+          ▼
+     Deployment
+          │
+          ▼
+   Production Server
+
+And importantly, your secrets will not be committed into GitHub.
+
+Things like:
+
+DATABASE_URL
+JWT_ACCESS_SECRET
+JWT_REFRESH_SECRET
+
+will be managed through GitHub Secrets/Environment configuration and eventually your deployment environment.
+
+What I want you to do now
+
+Only do Step 3 first.
+
+Update your ci.yml to:
+
+- name: Checkout repository
+  uses: actions/checkout@v6
+
+- name: Setup Node.js
+  uses: actions/setup-node@v7
+  with:
+    node-version: '22'
+    cache: npm
+    cache-dependency-path: backend/package-lock.json
+
+- name: Install dependencies
+  run: npm ci
+
+- name: Run lint
+  run: npm run lint
+
+- name: Build application
+  run: npm run build
+
+Then:
+
+git add .github/workflows/ci.yml
+git commit -m "ci: add lint validation"
+git push origin main
+Expected result
+
+GitHub Actions should show:
+
+ShopSphere CI
+   └── build
+       ├── Checkout repository       ✅
+       ├── Setup Node.js             ✅
+       ├── Install dependencies      ✅
+       ├── Run lint                  ✅
+       └── Build application         ✅
+
+If lint fails, don't bypass it. Send me the lint error and we'll make the codebase CI-clean first.
+
+Once this is green, we'll do Step 4: automated tests, then Docker. This incremental approach will make Sprint 9 much easier to troubleshoot.
