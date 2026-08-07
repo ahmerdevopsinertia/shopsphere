@@ -30,7 +30,6 @@ import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module';
-import { RefreshTokenService } from './modules/refresh-token/refresh-token.service';
 
 @Module({
   imports: [
