@@ -395,3 +395,163 @@ jobs:
        - name: Stop Docker container
          if: always()
          run: docker stop shopsphere-backend-ci
+
+
+------
+
+Rough Work Ends
+
+----
+
+Next Step
+Excellent! 🎉 That means we now have the first proper CI/CD milestone for ShopSphere completed.
+
+Current ShopSphere pipeline
+GitHub main
+    │
+    ▼
+GitHub Actions
+    │
+    ├── npm ci
+    ├── Build NestJS
+    ├── Docker Build
+    ├── Start PostgreSQL
+    ├── Wait for PostgreSQL
+    ├── Start ShopSphere
+    ├── Prisma migrations
+    ├── /health check
+    │
+    ▼
+    CI PASSED
+    │
+    ▼
+GitHub Container Registry
+    │
+    ├── :latest
+    └── :<commit-sha>
+
+So we have successfully completed:
+
+✅ Application build
+✅ Dockerization
+✅ PostgreSQL integration
+✅ Prisma migration during container startup
+✅ Container health verification
+✅ GitHub Actions CI
+✅ GHCR authentication
+✅ Docker image publishing
+✅ Immutable SHA image tagging
+Next step: actual deployment
+
+Now we can move to the next major piece:
+
+GHCR → AWS
+
+Since your original ShopSphere architecture was targeting AWS, I recommend we do not jump directly into Kubernetes/ECS complexity.
+
+For our first deployment, I'd use:
+
+AWS EC2 + Docker
+                 GitHub
+                    │
+                    ▼
+             GitHub Actions
+                    │
+                    ▼
+                  GHCR
+                    │
+                    │ docker pull
+                    ▼
+             ┌──────────────┐
+             │   AWS EC2    │
+             │              │
+             │ Docker       │
+             │   │          │
+             │   ▼          │
+             │ ShopSphere   │
+             └──────┬───────┘
+                    │
+                    ▼
+              PostgreSQL
+
+This gives us a relatively inexpensive and easy-to-understand production deployment while you're learning AWS.
+
+But there's an important architecture decision
+
+For production, I don't recommend running PostgreSQL inside the same EC2 instance.
+
+Eventually we should have:
+
+Internet
+   │
+   ▼
+EC2
+ShopSphere
+   │
+   │ private network
+   ▼
+AWS RDS PostgreSQL
+
+However, because you want to control AWS costs, we can initially deploy in stages:
+
+Stage 1
+
+EC2
+ ├── Docker
+ ├── ShopSphere
+ └── PostgreSQL
+
+Stage 2
+
+EC2
+ └── ShopSphere
+       │
+       ▼
+    RDS PostgreSQL
+
+Stage 3
+
+Application Load Balancer
+          │
+          ▼
+       EC2/ECS
+          │
+          ▼
+      RDS PostgreSQL
+
+And eventually, if ShopSphere grows:
+
+                    ALB
+                     │
+          ┌──────────┴──────────┐
+          ▼                     ▼
+      ShopSphere            ShopSphere
+       Container             Container
+          │                     │
+          └──────────┬──────────┘
+                     ▼
+                  RDS
+                     │
+              ┌──────┴──────┐
+              ▼             ▼
+             S3           Kafka/SQS
+I suggest our immediate next task
+
+Create the AWS EC2 deployment pipeline from GHCR.
+
+We'll do it carefully, one step at a time:
+
+Create EC2 instance
+Configure security group
+Install Docker
+Authenticate EC2 with GHCR
+Pull the ShopSphere image
+Configure environment variables securely
+Start ShopSphere
+Configure PostgreSQL
+Test the public API
+Then automate deployment from GitHub Actions
+
+I would not put AWS credentials directly into the Docker image or repository. We'll establish the correct secret-management approach as part of this deployment.
+
+You're now at a very good point: GitHub → CI → GHCR is working, so the next failure, if any, will be isolated to the AWS deployment layer rather than the application/CI layer.
