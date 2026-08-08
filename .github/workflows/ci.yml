@@ -194,4 +194,3 @@ jobs:
           docker rm -f shopsphere-backend-ci || true
           docker rm -f shopsphere-postgres-ci || true
           docker network rm shopsphere-ci || true
-```
