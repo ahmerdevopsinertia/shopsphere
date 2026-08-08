@@ -15,21 +15,6 @@ jobs:
     build:
       runs-on: ubuntu-latest
 
-      services:
-       postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 12345
-          POSTGRES_DB: shopsphere
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres -d shopsphere"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
       defaults:
         run:
           working-directory: backend
@@ -61,21 +46,63 @@ jobs:
        - name: Build Docker image
          run: docker build -t shopsphere-backend:ci .
 
+       - name: Create Docker network
+         run: docker network create shopsphere-ci
+
+       - name: Start PostgreSQL
+         run: |
+          docker run -d \
+            --name shopsphere-postgres-ci \
+            --network shopsphere-ci \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=12345 \
+            -e POSTGRES_DB=shopsphere \
+            postgres:16
+
+       - name: Wait for PostgreSQL
+         run: |
+          for i in {1..30}; do
+            if docker exec shopsphere-postgres-ci \
+              pg_isready -U postgres -d shopsphere; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+          docker logs shopsphere-postgres-ci
+          exit 1
+
        - name: Run Docker container
          run: |
           docker run -d \
             --name shopsphere-backend-ci \
             -p 3000:3000 \
-            -e DATABASE_URL="postgresql://postgres:12345@host.docker.internal:5432/shopsphere" \
+            -e DATABASE_URL=postgresql://postgres:12345@shopsphere-postgres-ci:5432/shopsphere \
             -e JWT_ACCESS_SECRET="ci-access-secret" \
             -e JWT_ACCESS_EXPIRES_IN="1d" \
             -e JWT_REFRESH_SECRET="ci-refresh-secret" \
             -e JWT_REFRESH_EXPIRES_IN="30d" \
             -e RUN_SEED="false" \
             shopsphere-backend:ci
+   
+       - name: Wait for ShopSphere
+         run: |
+          for i in {1..30}; do
+            if curl --silent --fail http://localhost:3000/health > /dev/null; then
+              echo "ShopSphere is healthy!"
+              exit 0
+            fi
 
-       - name: Wait for application
-         run: sleep 10
+            echo "Waiting for ShopSphere..."
+            sleep 2
+          done
+
+          docker ps -a
+          docker logs shopsphere-backend-ci
+          exit 1
 
        - name: Health check
          run: curl --fail http://localhost:3000/health
@@ -87,3 +114,10 @@ jobs:
        - name: Stop Docker container
          if: always()
          run: docker stop shopsphere-backend-ci
+
+       - name: Cleanup containers
+         if: always()
+         run: |
+          docker rm -f shopsphere-backend-ci || true
+          docker rm -f shopsphere-postgres-ci || true
+          docker network rm shopsphere-ci || true
