@@ -15,6 +15,21 @@ jobs:
     build:
       runs-on: ubuntu-latest
 
+      services:
+       postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 12345
+          POSTGRES_DB: shopsphere
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d shopsphere"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
       defaults:
         run:
           working-directory: backend
@@ -45,3 +60,30 @@ jobs:
 
        - name: Build Docker image
          run: docker build -t shopsphere-backend:ci .
+
+       - name: Run Docker container
+         run: |
+          docker run -d \
+            --name shopsphere-backend-ci \
+            -p 3000:3000 \
+            -e DATABASE_URL="postgresql://postgres:12345@host.docker.internal:5432/shopsphere" \
+            -e JWT_ACCESS_SECRET="ci-access-secret" \
+            -e JWT_ACCESS_EXPIRES_IN="1d" \
+            -e JWT_REFRESH_SECRET="ci-refresh-secret" \
+            -e JWT_REFRESH_EXPIRES_IN="30d" \
+            -e RUN_SEED="false" \
+            shopsphere-backend:ci
+
+       - name: Wait for application
+         run: sleep 10
+
+       - name: Health check
+         run: curl --fail http://localhost:3000/api/health
+
+       - name: Show container logs
+         if: always()
+         run: docker logs shopsphere-backend-ci
+
+       - name: Stop Docker container
+         if: always()
+         run: docker stop shopsphere-backend-ci
