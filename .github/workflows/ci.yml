@@ -78,7 +78,7 @@ jobs:
          run: sleep 10
 
        - name: Health check
-         run: curl --fail http://localhost:3000/api/health
+         run: curl --fail http://localhost:3000/health
 
        - name: Show container logs
          if: always()
