@@ -1,56 +1,83 @@
-name: Shopsphere CI
+name: ShopSphere CI
 
 on:
-  push: 
-      branches:
-        - main
-        - develop
+  push:
+    branches:
+      - main
+      - develop
 
   pull_request:
     branches:
       - main
       - develop
-      
+
 jobs:
-    build:
-      runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-      defaults:
-        run:
-          working-directory: backend
+    defaults:
+      run:
+        working-directory: backend
 
-      steps:
+    steps:
 
-       - name: Checkout repository
-         uses: actions/checkout@v6
+      # ---------------------------------------------------------
+      # Checkout
+      # ---------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-       - name: Setup Node.js
-         uses: actions/setup-node@v7
-         with:
-              node-version: 22
-              cache: npm
-              cache-dependency-path: backend/package-lock.json
+      # ---------------------------------------------------------
+      # Node.js
+      # ---------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-       - name: Install dependencies
-         run: npm ci
+      # ---------------------------------------------------------
+      # Install dependencies
+      # ---------------------------------------------------------
+      - name: Install dependencies
+        run: npm ci
 
-      #  - name: Run lint
-      #    run: npm run lint
+      # ---------------------------------------------------------
+      # Lint
+      # ---------------------------------------------------------
+      # - name: Run lint
+      #   run: npm run lint
 
-      #  - name: Run test
-      #    run: npm run test
+      # ---------------------------------------------------------
+      # Unit tests
+      # ---------------------------------------------------------
+      # - name: Run test
+      #   run: npm run test
 
-       - name: Build application
-         run: npm run build
+      # ---------------------------------------------------------
+      # Build NestJS application
+      # ---------------------------------------------------------
+      - name: Build application
+        run: npm run build
 
-       - name: Build Docker image
-         run: docker build -t shopsphere-backend:ci .
+      # ---------------------------------------------------------
+      # Build Docker image
+      # ---------------------------------------------------------
+      - name: Build Docker image
+        run: docker build -t shopsphere-backend:ci .
 
-       - name: Create Docker network
-         run: docker network create shopsphere-ci
+      # ---------------------------------------------------------
+      # Create Docker network
+      # ---------------------------------------------------------
+      - name: Create Docker network
+        run: docker network create shopsphere-ci
 
-       - name: Start PostgreSQL
-         run: |
+      # ---------------------------------------------------------
+      # Start PostgreSQL
+      # ---------------------------------------------------------
+      - name: Start PostgreSQL
+        run: |
           docker run -d \
             --name shopsphere-postgres-ci \
             --network shopsphere-ci \
@@ -59,11 +86,15 @@ jobs:
             -e POSTGRES_DB=shopsphere \
             postgres:16
 
-       - name: Wait for PostgreSQL
-         run: |
+      # ---------------------------------------------------------
+      # Wait until PostgreSQL is REALLY ready
+      # ---------------------------------------------------------
+      - name: Wait for PostgreSQL
+        run: |
           for i in {1..30}; do
             if docker exec shopsphere-postgres-ci \
               pg_isready -U postgres -d shopsphere; then
+
               echo "PostgreSQL is ready!"
               exit 0
             fi
@@ -72,26 +103,43 @@ jobs:
             sleep 2
           done
 
+          echo "PostgreSQL failed to become ready."
+
+          echo "========== PostgreSQL Container Status =========="
+          docker ps -a
+
+          echo "========== PostgreSQL Logs =========="
           docker logs shopsphere-postgres-ci
+
           exit 1
 
-       - name: Run Docker container
-         run: |
+      # ---------------------------------------------------------
+      # Start ShopSphere backend
+      # ---------------------------------------------------------
+      - name: Run Docker container
+        run: |
           docker run -d \
             --name shopsphere-backend-ci \
+            --network shopsphere-ci \
             -p 3000:3000 \
-            -e DATABASE_URL=postgresql://postgres:12345@shopsphere-postgres-ci:5432/shopsphere \
+            -e DATABASE_URL="postgresql://postgres:12345@shopsphere-postgres-ci:5432/shopsphere" \
             -e JWT_ACCESS_SECRET="ci-access-secret" \
             -e JWT_ACCESS_EXPIRES_IN="1d" \
             -e JWT_REFRESH_SECRET="ci-refresh-secret" \
             -e JWT_REFRESH_EXPIRES_IN="30d" \
             -e RUN_SEED="false" \
             shopsphere-backend:ci
-   
-       - name: Wait for ShopSphere
-         run: |
+
+      # ---------------------------------------------------------
+      # Wait until ShopSphere is healthy
+      # ---------------------------------------------------------
+      - name: Wait for ShopSphere
+        run: |
           for i in {1..30}; do
-            if curl --silent --fail http://localhost:3000/health > /dev/null; then
+
+            if curl --silent --fail \
+              http://localhost:3000/health > /dev/null; then
+
               echo "ShopSphere is healthy!"
               exit 0
             fi
@@ -100,24 +148,50 @@ jobs:
             sleep 2
           done
 
+          echo "ShopSphere failed to become healthy."
+
+          echo "========== Container Status =========="
           docker ps -a
+
+          echo "========== ShopSphere Logs =========="
           docker logs shopsphere-backend-ci
+
+          echo "========== PostgreSQL Logs =========="
+          docker logs shopsphere-postgres-ci
+
           exit 1
 
-       - name: Health check
-         run: curl --fail http://localhost:3000/health
+      # ---------------------------------------------------------
+      # Final health check
+      # ---------------------------------------------------------
+      - name: Health check
+        run: |
+          curl --fail http://localhost:3000/health
 
-       - name: Show container logs
-         if: always()
-         run: docker logs shopsphere-backend-ci
+      # ---------------------------------------------------------
+      # Show logs
+      # ---------------------------------------------------------
+      - name: Show ShopSphere logs
+        if: always()
+        run: |
+          docker logs shopsphere-backend-ci
 
-       - name: Stop Docker container
-         if: always()
-         run: docker stop shopsphere-backend-ci
+      # ---------------------------------------------------------
+      # Stop containers
+      # ---------------------------------------------------------
+      - name: Stop Docker containers
+        if: always()
+        run: |
+          docker stop shopsphere-backend-ci || true
+          docker stop shopsphere-postgres-ci || true
 
-       - name: Cleanup containers
-         if: always()
-         run: |
+      # ---------------------------------------------------------
+      # Cleanup
+      # ---------------------------------------------------------
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
           docker rm -f shopsphere-backend-ci || true
           docker rm -f shopsphere-postgres-ci || true
           docker network rm shopsphere-ci || true
+```
