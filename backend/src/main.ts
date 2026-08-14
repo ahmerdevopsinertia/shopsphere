@@ -52,7 +52,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: configService.get<string>('app.corsOrigin'),
-    methods: configService.get<string>('httpMethods'),
+    methods: configService.get<string[]>('app.httpMethods'),
     credentials: true,
   });
 
