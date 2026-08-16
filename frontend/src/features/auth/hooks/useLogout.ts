@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 
 import { logout } from '../api/auth.api';
 import { useAuthStore } from '../store/auth.store';
-import { authStorage } from '../utils/auth-storage';
 
 export function useLogout() {
   const navigate = useNavigate();
@@ -12,11 +11,8 @@ export function useLogout() {
   );
 
   const handleLogout = async () => {
-    const refreshToken = authStorage.getRefreshToken();
     try {
-      if (refreshToken) {
-        await logout(refreshToken);
-      }
+      await logout();
     } catch (error) {
       console.error(
         'Logout request failed:',

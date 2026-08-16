@@ -12,7 +12,6 @@ export interface LoginRequest {
 export interface LoginResponse {
 	user: AuthUser;
 	accessToken: string;
-	refreshToken: string;
 }
 
 export interface RefreshTokenRequest {
@@ -22,7 +21,6 @@ export interface RefreshTokenRequest {
 
 export interface RefreshTokenResponse {
 	accessToken: string;
-	refreshToken: string;
 }
 
 export interface RegisterRequest {

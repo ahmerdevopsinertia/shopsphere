@@ -33,8 +33,6 @@ export function useAuthInitialization() {
 					refreshToken,
 				});
 
-				console.log('🟢 Refresh API completed', response);
-
 				/**
 				 * Backend refresh returns new tokens
 				 * but does not return the user.

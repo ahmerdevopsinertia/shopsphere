@@ -6,17 +6,15 @@ import { authStorage } from '../utils/auth-storage';
 interface AuthState {
 	user: AuthUser | null;
 	accessToken: string | null;
-	refreshToken: string | null;
 	isAuthenticated: boolean;
 	isInitialized: boolean;
 
 	setAuth: (
 		user: AuthUser,
-		accessToken: string,
-		refreshToken?: string
+		accessToken: string
 	) => void;
 
-	updateTokens: (accessToken: string, refreshToken: string) => void
+	updateTokens: (accessToken: string) => void
 
 	clearAuth: () => void;
 
@@ -32,36 +30,28 @@ export const useAuthStore = create<AuthState>((set) => (
 		isAuthenticated: !!authStorage.getAccessToken(),
 		isInitialized: false,
 
-		setAuth: (user, accessToken, refreshToken) => {
+		setAuth: (user, accessToken) => {
 			authStorage.setAccessToken(accessToken);
-
-			if (refreshToken) {
-				authStorage.setRefreshToken(refreshToken);
-			}
-
 			set({
 				user,
 				accessToken,
 				isAuthenticated: true,
-				refreshToken: refreshToken ?? null,
 			})
 		},
-		updateTokens: (accessToken, refreshToken) => {
+		updateTokens: (accessToken) => {
 			authStorage.setAccessToken(accessToken);
-			authStorage.setRefreshToken(refreshToken);
 
 			set({
 				accessToken,
-				refreshToken,
 				isAuthenticated: true,
 			});
 		},
 
 		clearAuth: () => {
+			authStorage.clear();
 			set({
 				user: null,
 				accessToken: null,
-				refreshToken: null,
 				isAuthenticated: false,
 			});
 		},

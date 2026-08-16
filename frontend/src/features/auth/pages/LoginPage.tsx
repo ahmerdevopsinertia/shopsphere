@@ -33,7 +33,6 @@ export default function LoginPage() {
 			});
 
 		} catch (error) {
-			console.log('Login failed: ', error);
 			setError('Invalid email or password.');
 		} finally {
 			setLoading(false);

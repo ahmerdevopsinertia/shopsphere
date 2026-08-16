@@ -29,22 +29,12 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-
-let isRefreshing = false;
 let refreshPromise: Promise<string> | null = null;
 
 apiClient.interceptors.response.use(
   (response) => response,
 
-  async (error: AxiosError) => {
-
-    console.log('🔴 AXIOS INTERCEPTOR ERROR');
-    console.log('Status:', error.response?.status);
-    console.log('URL:', error.config?.url);
-    console.log(
-      'Auth Store:',
-      useAuthStore.getState(),
-    );
+  async (error) => {
 
     const originalRequest =
       error.config as RetryableRequestConfig;
@@ -53,18 +43,9 @@ apiClient.interceptors.response.use(
       error.response?.status !== 401 ||
       originalRequest?._retry
     ) {
-      console.log('Retry flag:', originalRequest?._retry);
       return Promise.reject(error);
     }
 
-    console.log('🟠 401 detected');
-    console.log('Original URL:', originalRequest.url);
-    console.log(
-      'Refresh Token:',
-      useAuthStore.getState().refreshToken,
-    );
-
-    // Never intercept the refresh request itself
     if (
       originalRequest.url ===
       API_ENDPOINTS.auth.refresh
@@ -78,47 +59,29 @@ apiClient.interceptors.response.use(
 
     originalRequest._retry = true;
 
-    const authStore =
-      useAuthStore.getState();
-
-    console.log('🟢 Calling refresh API');
-
-    const refreshToken =
-      authStore.refreshToken;
-
-    if (!refreshToken) {
-      authStore.clearAuth();
-      return Promise.reject(error);
-    }
-
     try {
 
-      // Another request is already refreshing
-      if (isRefreshing && refreshPromise) {
-        const newAccessToken =
-          await refreshPromise;
-        originalRequest.headers.Authorization =
-          `Bearer ${newAccessToken}`;
-        return apiClient(originalRequest);
-      }
+      if (!refreshPromise) {
 
-      // Start refresh
-      isRefreshing = true;
-      refreshPromise =
-        refresh({refreshToken})
-          .then((response) => {
-            useAuthStore
-              .getState()
-              .updateTokens(
-                response.accessToken,
-                response.refreshToken,
-              );
-            return response.accessToken;
-          })
-          .finally(() => {
-            isRefreshing = false;
-            refreshPromise = null;
-          });
+        refreshPromise =
+          refresh()
+            .then((response) => {
+
+              useAuthStore
+                .getState()
+                .updateTokens(
+                  response.accessToken,
+                );
+
+              return response.accessToken;
+
+            })
+            .finally(() => {
+
+              refreshPromise = null;
+
+            });
+      }
 
       const newAccessToken =
         await refreshPromise;
@@ -126,7 +89,9 @@ apiClient.interceptors.response.use(
       originalRequest.headers.Authorization =
         `Bearer ${newAccessToken}`;
 
-      return apiClient(originalRequest);
+      return apiClient(
+        originalRequest,
+      );
 
     } catch (refreshError) {
 

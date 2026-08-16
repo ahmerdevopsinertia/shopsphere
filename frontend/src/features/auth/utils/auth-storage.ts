@@ -20,6 +20,5 @@ export const authStorage = {
 
 	clear(): void {
 		localStorage.removeItem(ACCESS_TOKEN_KEY);
-		localStorage.removeItem(REFRESH_TOKEN_KEY);
 	},
 };
