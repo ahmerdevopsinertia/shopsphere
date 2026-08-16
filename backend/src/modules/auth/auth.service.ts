@@ -150,7 +150,7 @@ export class AuthService {
 	}
 
 	async refresh(
-		dto: RefreshTokenDto
+		refreshToken: string
 	) {
 
 		this.logger.debug(
@@ -165,7 +165,7 @@ export class AuthService {
 
 			payload =
 				await this.jwtService.verifyAsync(
-					dto.refreshToken,
+					refreshToken,
 					{
 						secret:
 							this.configService.get(
@@ -288,7 +288,7 @@ export class AuthService {
 		const refreshTokenId =
 			crypto.randomUUID();
 
-		const refreshToken =
+		const refreshTokenSigned =
 			await this.jwtService.signAsync(
 				{
 					sub: user.id,
@@ -332,15 +332,18 @@ export class AuthService {
 			'Refresh token rotated');
 
 		return {
+			user: {
+				id: user.id,
+				email: user.email,
+				role: user.role,
+			},
 			accessToken,
-			refreshToken
+			refreshToken: refreshTokenSigned,
 		};
 
 	}
 
-	async logout(
-		dto: LogoutDto
-	) {
+	async logout(refreshToken: string) {
 
 		this.logger.debug(
 			'Refresh token validation started'
@@ -348,13 +351,12 @@ export class AuthService {
 
 		let payload: any;
 
-
 		// 1. Verify refresh token
 		try {
 
 			payload =
 				await this.jwtService.verifyAsync(
-					dto.refreshToken,
+					refreshToken,
 					{
 						secret:
 							this.configService.get(
@@ -372,15 +374,12 @@ export class AuthService {
 
 		}
 		catch (error) {
-
 			throw new UnauthorizedException(
 				'Invalid refresh token.'
 			);
-
 		}
 
 		// 2. Get user's active refresh tokens
-
 		const tokens =
 			await this.refreshTokenService
 				.findActiveTokensByUserId(
@@ -392,38 +391,26 @@ export class AuthService {
 		let storedToken:
 			typeof tokens[number] | null = null;
 
-
 		for (const token of tokens) {
-
 			const isValid =
 				await bcrypt.compare(
 					payload.jti,
 					token.tokenHash
 				);
 
-
 			if (isValid) {
-
 				storedToken = token;
 				break;
-
 			}
-
 		}
 
-
-
 		if (!storedToken) {
-
 			throw new UnauthorizedException(
 				'Refresh token revoked or expired.'
 			);
-
 		}
 
-
 		// 4. Revoke old refresh token
-
 		await this.refreshTokenService.revoke(
 			storedToken.id
 		);

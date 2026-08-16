@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import * as express from 'express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -38,6 +39,8 @@ async function bootstrap() {
   );
 
   app.use(helmet());
+
+  app.use(cookieParser());
 
   const configService =
     app.get(ConfigService);
