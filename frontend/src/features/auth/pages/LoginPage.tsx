@@ -28,7 +28,7 @@ export default function LoginPage() {
 
 			setAuth(response.user, response.accessToken, response.refreshToken);
 
-			navigate('/orders', {
+			navigate('/', {
 				replace: true
 			});
 

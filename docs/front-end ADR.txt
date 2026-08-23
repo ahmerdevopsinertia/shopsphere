@@ -1,0 +1,318 @@
+ADR approach going forward
+
+Let's maintain ADRs only for decisions such as:
+
+Choosing Zustand for global state management
+Deciding cart state synchronization strategy
+Guest cart vs authenticated cart architecture
+Refresh-token cookie strategy
+Major frontend architecture decisions
+
+We won't create ADRs for ordinary implementation work such as:
+
+ProductCard component
+CartPage layout
+Loading state
+API endpoint wrapper
+Individual
+
+====
+
+1. Why do we call /auth/refresh when the page is refreshed?
+
+This is intentional and is part of our authentication design.
+
+We currently have:
+
+localStorage
+└── shopsphere_access_token
+
+HttpOnly Cookie
+└── shopsphere_refresh_token
+
+The access token is available to JavaScript, but the refresh token is not.
+
+The important point is that having an access token in localStorage doesn't mean we should trust it blindly after a browser restart/refresh.
+
+What happens on browser refresh?
+
+Suppose:
+
+Access token
+Expires in 30 seconds
+
+Refresh token
+Expires in 30 days
+
+The user closes the browser and comes back tomorrow.
+
+LocalStorage still contains:
+
+shopsphere_access_token = old token
+
+but that access token could already be expired.
+
+So on application startup:
+
+Browser refresh
+      ↓
+useAuthInitialization()
+      ↓
+POST /auth/refresh
+      ↓
+Browser automatically sends HttpOnly refresh cookie
+      ↓
+Backend validates refresh token
+      ↓
+New access token
+      ↓
+Store new access token
+      ↓
+Application starts authenticated
+
+This gives us a session restoration mechanism.
+
+Why not simply decode the localStorage token?
+
+We could check:
+
+exp > current time
+
+but that only tells us that the JWT appears valid according to its expiration.
+
+It doesn't tell us whether the server has revoked the underlying session/refresh token.
+
+For example, the user could have logged out from another device.
+
+Therefore:
+
+Refresh token = source of truth for restoring a session.
+
+The access token is primarily a short-lived credential for API requests.
+
+2. Our frontend folder structure
+
+Now that we've implemented Auth, Products and Cart, this structure becomes important.
+
+The pattern we're using is essentially:
+
+feature
+│
+├── api
+├── hooks
+├── store
+├── types
+└── pages/components
+
+For example:
+
+src/
+│
+├── api/
+│   ├── client.ts
+│   └── endpoints.ts
+│
+├── features/
+│
+│   ├── auth/
+│   │   ├── api/
+│   │   │   └── auth.api.ts
+│   │   ├── hooks/
+│   │   │   └── useAuthInitialization.ts
+│   │   ├── store/
+│   │   │   └── auth.store.ts
+│   │   ├── types/
+│   │   │   └── auth.types.ts
+│   │   ├── utils/
+│   │   │   └── auth-storage.ts
+│   │   └── pages/
+│   │       ├── Login.tsx
+│   │       └── ...
+│   │
+│   ├── products/
+│   │   ├── api/
+│   │   │   └── product.api.ts
+│   │   ├── hooks/
+│   │   ├── types/
+│   │   │   └── product.types.ts
+│   │   └── pages/
+│   │       ├── Products.tsx
+│   │       └── ProductDetails.tsx
+│   │
+│   ├── cart/
+│   │   ├── api/
+│   │   │   └── cart.api.ts
+│   │   ├── hooks/
+│   │   │   └── useCart.ts
+│   │   ├── store/
+│   │   │   └── cart.store.ts
+│   │   ├── types/
+│   │   │   └── cart.types.ts
+│   │   └── pages/
+│   │       └── Cart.tsx
+│   │
+│   └── checkout/
+│       ├── api/
+│       │   └── checkout.api.ts
+│       ├── hooks/
+│       │   └── useCheckout.ts
+│       ├── types/
+│       │   └── checkout.types.ts
+│       └── pages/
+│           └── Checkout.tsx
+│
+├── components/
+│   └── ...
+│
+├── routes/
+│   └── ...
+│
+└── main.tsx
+
+We don't necessarily need every folder for every feature. We create them when the feature actually needs them.
+
+3. What does each folder do?
+api/
+
+This is where we communicate with the backend.
+
+Example:
+
+export async function getCart() {
+	const response = await apiClient.get(
+		API_ENDPOINTS.cart.get,
+	);
+
+	return response.data.data;
+}
+
+The API layer should not contain UI logic.
+
+Think:
+
+Frontend
+   ↓
+API function
+   ↓
+Axios
+   ↓
+Backend
+types/
+
+Contains TypeScript contracts.
+
+For example:
+
+export interface CartItem {
+	productId: string;
+	name: string;
+	unitPrice: number;
+	quantity: number;
+	subtotal: number;
+}
+
+This gives us compile-time safety.
+
+Instead of:
+
+data.items[0].whatever
+
+we know exactly what the backend returns.
+
+store/
+
+Contains shared state that needs to survive across components.
+
+Our Cart store, for example:
+
+CartPage
+ProductDetails
+Navbar
+Checkout
+       │
+       ▼
+   cart.store
+
+This is why adding an item from Product Details can immediately update the cart badge elsewhere.
+
+We don't want every component maintaining its own independent copy.
+
+hooks/
+
+Hooks are our feature-level reusable logic.
+
+For example:
+
+const {
+	cart,
+	addItem,
+	updateItemQuantity,
+	removeCart,
+} = useCart();
+
+The component doesn't need to know:
+
+which API endpoint is being called
+how loading is managed
+how Zustand is updated
+how the response is processed
+
+That complexity lives in the hook.
+
+So:
+
+Component
+    ↓
+useCart()
+    ↓
+cart.api.ts
+    ↓
+Backend
+pages/
+
+Pages are responsible primarily for UI and user interaction.
+
+For example:
+
+Cart.tsx
+Checkout.tsx
+ProductDetails.tsx
+Orders.tsx
+
+They consume the hooks/stores/API layer rather than duplicating backend logic.
+
+4. Why this architecture is useful for Checkout
+
+Checkout will eventually involve several things:
+
+Cart
+ ↓
+Checkout
+ ↓
+Order creation
+ ↓
+Order confirmation
+ ↓
+Orders
+
+If we put everything directly into Checkout.tsx, it will become difficult to maintain.
+
+Instead:
+
+Checkout.tsx
+      │
+      ▼
+useCheckout()
+      │
+      ▼
+checkout.api.ts
+      │
+      ▼
+POST /orders
+      │
+      ▼
+Backend
+
+Much cleaner.
+
+====

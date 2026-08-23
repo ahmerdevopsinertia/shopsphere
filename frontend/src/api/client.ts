@@ -94,7 +94,6 @@ apiClient.interceptors.response.use(
       );
 
     } catch (refreshError) {
-
       useAuthStore
         .getState()
         .clearAuth();

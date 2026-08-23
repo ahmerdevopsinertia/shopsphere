@@ -5,41 +5,60 @@ import { authStorage } from '../utils/auth-storage';
 
 interface AuthState {
 	user: AuthUser | null;
+
 	accessToken: string | null;
+
 	isAuthenticated: boolean;
+
 	isInitialized: boolean;
 
 	setAuth: (
 		user: AuthUser,
-		accessToken: string
+		accessToken: string,
 	) => void;
 
-	updateTokens: (accessToken: string) => void
+	updateTokens: (
+		accessToken: string,
+	) => void;
 
 	clearAuth: () => void;
 
 	setInitialized: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => (
-	{
+export const useAuthStore =
+	create<AuthState>((set) => ({
 		user: null,
 
-		accessToken: authStorage.getAccessToken(),
-		refreshToken: null,
-		isAuthenticated: !!authStorage.getAccessToken(),
+		accessToken:
+			authStorage.getAccessToken(),
+
+		isAuthenticated:
+			!!authStorage.getAccessToken(),
+
 		isInitialized: false,
 
-		setAuth: (user, accessToken) => {
-			authStorage.setAccessToken(accessToken);
+		setAuth: (
+			user,
+			accessToken,
+		) => {
+			authStorage.setAccessToken(
+				accessToken,
+			);
+
 			set({
 				user,
 				accessToken,
 				isAuthenticated: true,
-			})
+			});
 		},
-		updateTokens: (accessToken) => {
-			authStorage.setAccessToken(accessToken);
+
+		updateTokens: (
+			accessToken,
+		) => {
+			authStorage.setAccessToken(
+				accessToken,
+			);
 
 			set({
 				accessToken,
@@ -49,6 +68,7 @@ export const useAuthStore = create<AuthState>((set) => (
 
 		clearAuth: () => {
 			authStorage.clear();
+
 			set({
 				user: null,
 				accessToken: null,
@@ -56,8 +76,9 @@ export const useAuthStore = create<AuthState>((set) => (
 			});
 		},
 
-		setInitialized: () =>
+		setInitialized: () => {
 			set({
 				isInitialized: true,
-			}),
+			});
+		},
 	}));

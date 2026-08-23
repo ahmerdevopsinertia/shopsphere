@@ -366,6 +366,10 @@ async function bootstrap() {
 		origin: configService.get<string>(
 			'app.corsOrigin',
 		),
+    methods:
+    configService.get<string[]>(
+      'app.httpMethods',
+    ),
 		credentials: true,
 	});
 

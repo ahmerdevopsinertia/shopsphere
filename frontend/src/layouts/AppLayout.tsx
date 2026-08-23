@@ -22,6 +22,8 @@ export default function AppLayout() {
 							isAuthenticated ? (
 								<>
 									<Link to="/products">Products</Link>
+									<Link to="/orders">Orders</Link>
+									<Link to="/cart">Cart</Link>
 									<span>
 										{user?.email}
 									</span>
@@ -34,6 +36,7 @@ export default function AppLayout() {
 									<>
 										<Link to="/login">Login</Link>
 										<Link to="/register">Register</Link>
+										<Link to="/products">Products</Link>
 									</>
 								)}
 					</nav>

@@ -17,4 +17,19 @@ export const API_ENDPOINTS = {
 		list: '/orders',
 		detail: (id: string) => `/orders/${id}`,
 	},
+
+	cart: {
+		get: '/cart',
+		add: '/cart',
+		update: '/cart',
+		updateItem: (productId: string) =>
+			`/cart/items/${productId}`,
+		deleteCartItem: (productId: string) =>
+			`/cart/items/${productId}`,
+		delete: `/cart`
+	},
+
+	checkout: {
+		create: '/checkout'
+	}
 } as const;

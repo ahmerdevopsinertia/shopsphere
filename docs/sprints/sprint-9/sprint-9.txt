@@ -555,3 +555,18 @@ Then automate deployment from GitHub Actions
 I would not put AWS credentials directly into the Docker image or repository. We'll establish the correct secret-management approach as part of this deployment.
 
 You're now at a very good point: GitHub → CI → GHCR is working, so the next failure, if any, will be isolated to the AWS deployment layer rather than the application/CI layer.
+
+--- 
+
+Rough Work
+
+onst token = localStorage.getItem('shopsphere_access_token');
+
+const payload = JSON.parse(
+  atob(token.split('.')[1])
+);
+
+console.log(payload);
+console.log('Issued:', new Date(payload.iat * 1000));
+console.log('Expires:', new Date(payload.exp * 1000));
+console.log('Now:', new Date());
