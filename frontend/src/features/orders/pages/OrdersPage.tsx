@@ -56,7 +56,7 @@ export default function OrdersPage() {
 				page,
 				meta?.limit ?? 10,
 				activeSearch ||
-					undefined,
+				undefined,
 			);
 		};
 
@@ -116,7 +116,7 @@ export default function OrdersPage() {
 					Loading orders...
 				</div>
 			) : orders.length ===
-			  0 ? (
+				0 ? (
 				<div className="mt-10 rounded-xl border p-10 text-center">
 					<p className="text-gray-500">
 						No orders found.
@@ -141,7 +141,7 @@ export default function OrdersPage() {
 
 			{meta &&
 				meta.totalPages >
-					1 && (
+				1 && (
 					<div className="mt-8 flex items-center justify-center gap-4">
 						<button
 							type="button"
@@ -152,7 +152,7 @@ export default function OrdersPage() {
 							onClick={() =>
 								handlePageChange(
 									meta.page -
-										1,
+									1,
 								)
 							}
 							className="rounded-lg border px-4 py-2 disabled:opacity-40"
@@ -180,7 +180,7 @@ export default function OrdersPage() {
 							onClick={() =>
 								handlePageChange(
 									meta.page +
-										1,
+									1,
 								)
 							}
 							className="rounded-lg border px-4 py-2 disabled:opacity-40"

@@ -9,14 +9,31 @@ export interface Product {
 	updatedAt?: string;
 }
 
-export interface ProductsResponse {
-	success: boolean;
-	data: {
-		data: Product[]
-	};
+// export interface ProductsResponse {
+// 	success: boolean;
+// 	data: {
+// 		data: Product[]
+// 	};
+// }
+
+// export interface ProductResponse {
+// 	success: boolean;
+// 	data: Product;
+// }
+
+export interface ProductQuery {
+	page?: number;
+	limit?: number;
+	search?: string;
+}
+export interface ProductListMeta {
+	page: number;
+	limit: number;
+	total: number;
+	totalPages: number;
 }
 
-export interface ProductResponse {
-	success: boolean;
-	data: Product;
+export interface ProductListResponse {
+	data: Product[];
+	meta: ProductListMeta;
 }

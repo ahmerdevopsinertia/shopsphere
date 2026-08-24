@@ -24,6 +24,12 @@ export default function AppLayout() {
 									<Link to="/products">Products</Link>
 									<Link to="/orders">Orders</Link>
 									<Link to="/cart">Cart</Link>
+									<Link
+										to="/profile"
+										className="text-sm font-medium text-gray-700 hover:text-black"
+									>
+										Profile
+									</Link>
 									<span>
 										{user?.email}
 									</span>

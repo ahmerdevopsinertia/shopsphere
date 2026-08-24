@@ -7,7 +7,6 @@ import {
 import AppLayout from '../layouts/AppLayout';
 import LoginPage from '../features/auth/pages/LoginPage';
 import ProtectedRoute from './ProtectedRoutes';
-import OrdersPage from '../features/auth/pages/Orders';
 import ProductsPage
 	from '../features/products/pages/ProductPage';
 
@@ -16,10 +15,12 @@ import ProductDetailsPage
 import CartPage from '../features/cart/pages/CartPage';
 import CheckoutPage from '../features/checkout/pages/Checkout';
 import OrderDetailsPage from '../features/orders/pages/OrderDetailsPage';
+import OrdersPage from '../features/orders/pages/OrdersPage';
+import ProfilePage from '../features/profile/pages/ProfilePage';
 
-function Home() {
-	return <div>ShopSphere Home</div>;
-}
+// function Home() {
+// 	return <div>ShopSphere Home</div>;
+// }
 
 function Register() {
 	return <div>Register</div>;
@@ -33,7 +34,7 @@ export default function AppRoutes() {
 
 					<Route
 						path="/"
-						element={<Home />}
+						element={<ProductsPage />}
 					/>
 
 					<Route
@@ -57,12 +58,6 @@ export default function AppRoutes() {
 					/>
 
 					<Route element={<ProtectedRoute />}>
-
-						<Route
-							path="/orders"
-							element={<OrdersPage />}
-						/>
-
 						<Route
 							path="/cart"
 							element={<CartPage />}
@@ -81,6 +76,11 @@ export default function AppRoutes() {
 						<Route
 							path="/checkout"
 							element={<CheckoutPage />}
+						/>
+						
+						<Route
+							path="/profile"
+							element={<ProfilePage />}
 						/>
 
 					</Route>

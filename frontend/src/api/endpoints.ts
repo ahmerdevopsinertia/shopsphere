@@ -31,5 +31,13 @@ export const API_ENDPOINTS = {
 
 	checkout: {
 		create: '/checkout'
-	}
+	},
+	
+	categories: {
+		list: '/categories',
+	},
+
+	profile: {
+		get: '/profile',
+	},
 } as const;
