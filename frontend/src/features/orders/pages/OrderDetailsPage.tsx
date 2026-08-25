@@ -166,7 +166,8 @@ export default function OrderDetailsPage() {
 					</h2>
 
 					<div className="mt-4">
-						{currentOrder.items.map(
+						{
+						currentOrder.items.map(
 							(
 								item,
 							) => (

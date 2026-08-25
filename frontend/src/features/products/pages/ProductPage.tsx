@@ -100,10 +100,12 @@ export default function ProductsPage() {
 			page,
 			limit,
 			search: search || undefined,
+			categoryId: selectedCategory || undefined,
 		});
 	}, [
 		page,
 		search,
+		selectedCategory,
 		loadProducts,
 	]);
 
@@ -147,6 +149,7 @@ export default function ProductsPage() {
 	const handleCategorySelect = (
 		categoryId: string | null,
 	) => {
+		setPage(1);
 		setSelectedCategory(
 			categoryId,
 		);
@@ -289,14 +292,14 @@ export default function ProductsPage() {
 				{/* Selected Category Notice         */}
 				{/* ================================= */}
 
-				{selectedCategory && (
+				{/* {selectedCategory && (
 					<div className="mb-5 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800">
 						Category filtering will be
 						connected once the Product
 						API supports category
 						filtering.
 					</div>
-				)}
+				)} */}
 
 				{/* ================================= */}
 				{/* Product Error                    */}

@@ -9,6 +9,7 @@ interface OrderItemProps {
 export default function OrderItem({
 	item,
 }: OrderItemProps) {
+	console.log(item);
 	return (
 		<div className="flex items-center justify-between border-b py-4 last:border-b-0">
 			<div>
@@ -17,7 +18,7 @@ export default function OrderItem({
 				</p>
 
 				<p className="text-sm text-gray-500">
-					{item.productId}
+					{item.product.name}
 				</p>
 
 				<p className="mt-1 text-sm text-gray-500">

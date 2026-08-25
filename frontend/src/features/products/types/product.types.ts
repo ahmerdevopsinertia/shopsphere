@@ -25,6 +25,7 @@ export interface ProductQuery {
 	page?: number;
 	limit?: number;
 	search?: string;
+	categoryId: string;
 }
 export interface ProductListMeta {
 	page: number;
