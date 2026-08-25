@@ -171,8 +171,9 @@ export class OrdersService {
 				id: order.id,
 				status: order.status,
 				totalAmount: Number(order.totalAmount),
-				items: order.items.map((item) => ({
+				items: order.items.map((item: any) => ({
 					productId: item.productId,
+					productName: item.product.name,
 					quantity: item.quantity,
 					unitPrice: Number(item.unitPrice),
 				})),

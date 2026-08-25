@@ -25,8 +25,8 @@ export class ProductsController {
 
 	@Get(':id')
 	@ApiResponse({
-		status:200,
-		description:'Product fetched successfully',
+		status: 200,
+		description: 'Product fetched successfully',
 	})
 	findById(@Param('id') id: string): Promise<ProductResponseDto> {
 		return this.productService.findById(id);
@@ -34,10 +34,10 @@ export class ProductsController {
 
 	@Get()
 	@ApiResponse({
-		status:200,
-		description:'Products listed successfully',
+		status: 200,
+		description: 'Products listed successfully',
 	})
 	findAll(@Query() query: ProductQueryDto): Promise<ProductResponseDto> {
-		return this.productService.findAll(query.page ?? 1, query.limit ?? 10, query.search ?? '');
+		return this.productService.findAll(query.page ?? 1, query.limit ?? 10, query.search ?? '', query.categoryId ?? '');
 	}
 }

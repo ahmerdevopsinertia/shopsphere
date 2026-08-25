@@ -6,8 +6,8 @@ export class OrderResponseDto {
 	totalAmount: number;
 	items: {
 		productId: string;
+		productName: string;
 		quantity: number;
 		unitPrice: number;
 	}[];
-
 }

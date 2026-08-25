@@ -77,12 +77,12 @@ export class ProductsService {
 		};
 	}
 
-	async findAll(page: number, limit: number, search: string): Promise<any> {
+	async findAll(page: number, limit: number, search: string, categoryId: string): Promise<any> {
 		const skip = (page - 1) * limit;
 
 		const [products, total] = await Promise.all([
-			this.productRepository.findAll(skip, limit, search),
-			this.productRepository.count(search)
+			this.productRepository.findAll(skip, limit, search, categoryId),
+			this.productRepository.count(search, categoryId)
 		]);
 
 		return {

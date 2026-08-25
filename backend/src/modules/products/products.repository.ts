@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "src/prisma/prisma.service";
 
 @Injectable()
@@ -32,58 +33,86 @@ export class ProductsRepository {
 		});
 	}
 
-	async findAll(skip: number, take: number, search: string) {
+	async findAll(
+		skip: number,
+		take: number,
+		search?: string,
+		categoryId?: string,
+	) {
+		const where: Prisma.ProductWhereInput = {};
+
+		if (search?.trim()) {
+			const searchValue =
+				search.trim();
+
+			where.OR = [
+				{
+					name: {
+						contains: searchValue,
+						mode: 'insensitive',
+					},
+				},
+				{
+					sku: {
+						contains: searchValue,
+						mode: 'insensitive',
+					},
+				},
+			];
+		}
+
+		if (categoryId) {
+			where.categoryId = categoryId;
+		}
+
 		return this.prisma.product.findMany({
-			where: search
-				? {
-					OR: [
-						{
-							name: {
-								contains: search,
-								mode: 'insensitive',
-							},
-						},
-						{
-							sku: {
-								contains: search,
-								mode: 'insensitive',
-							},
-						},
-					],
-				}
-				: undefined,
+			where,
+
 			skip,
 			take,
+
 			include: {
 				category: true,
-				inventory: true
+				inventory: true,
 			},
+
 			orderBy: {
-				createdAt: 'desc'
-			}
+				createdAt: 'desc',
+			},
 		});
 	}
 
-	async count(search: string) {
+	async count(
+		search?: string,
+		categoryId?: string,
+	) {
+		const where: Prisma.ProductWhereInput = {};
+
+		if (search?.trim()) {
+			const searchValue = search.trim();
+
+			where.OR = [
+				{
+					name: {
+						contains: searchValue,
+						mode: 'insensitive',
+					},
+				},
+				{
+					sku: {
+						contains: searchValue,
+						mode: 'insensitive',
+					},
+				},
+			];
+		}
+
+		if (categoryId) {
+			where.categoryId = categoryId;
+		}
+
 		return this.prisma.product.count({
-			where: search
-				? {
-					OR: [
-						{
-							name: {
-								contains: search,
-								mode: 'insensitive',
-							},
-						},
-						{
-							sku: {
-								contains: search,
-								mode: 'insensitive',
-							},
-						},
-					],
-				}
-				: undefined,
+			where,
 		});
 	}
 }

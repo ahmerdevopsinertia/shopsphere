@@ -72,7 +72,16 @@ export class CheckoutRepository {
 						id: order.id,
 					},
 					include: {
-						items: true,
+						items: {
+							include: {
+								product: {
+									select: {
+										id: true,
+										name: true,
+									},
+								},
+							},
+						}
 					},
 				});
 			},

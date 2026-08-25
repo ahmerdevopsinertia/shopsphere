@@ -126,6 +126,7 @@ export class CheckoutService {
 			paymentReference: order.paymentReference,
 			items: order!.items.map(item => ({
 				productId: item.productId,
+				productName: item.product.name,
 				quantity: item.quantity,
 				unitPrice: Number(item.unitPrice),
 			})),

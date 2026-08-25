@@ -19,4 +19,9 @@ export class ProductQueryDto {
 	@IsString()
 	@MaxLength(100)
 	search?: string;
+
+	@IsOptional()
+	@IsString()
+	@MaxLength(100)
+	categoryId?: string;
 }
