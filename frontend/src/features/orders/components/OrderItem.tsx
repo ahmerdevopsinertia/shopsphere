@@ -9,7 +9,6 @@ interface OrderItemProps {
 export default function OrderItem({
 	item,
 }: OrderItemProps) {
-	console.log(item);
 	return (
 		<div className="flex items-center justify-between border-b py-4 last:border-b-0">
 			<div>

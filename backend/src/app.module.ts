@@ -30,6 +30,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module
     CheckoutModule,
     PaymentModule,
     RefreshTokenModule,
+    WishlistModule,
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [
