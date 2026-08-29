@@ -46,7 +46,8 @@ export class ProductsService {
 			price: Number(product.price),
 			sku: product.sku,
 			description: product.description ?? undefined,
-			categoryName: product.category.name
+			categoryName: product.category.name,
+			imageUrl: product.imageUrl ?? undefined,
 		}
 
 	}
@@ -73,7 +74,8 @@ export class ProductsService {
 						product.inventory.quantity -
 						product.inventory.reserved,
 				}
-				: null
+				: null,
+			imageUrl: product.imageUrl ?? undefined,
 		};
 	}
 
@@ -102,7 +104,8 @@ export class ProductsService {
 								product.inventory.quantity -
 								product.inventory.reserved,
 						}
-						: null
+						: null,
+						imageUrl: product.imageUrl ?? undefined,
 				}
 			}),
 			meta: {

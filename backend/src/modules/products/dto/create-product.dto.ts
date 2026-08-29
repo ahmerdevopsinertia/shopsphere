@@ -35,4 +35,8 @@ export class CreateProductDto {
 	@IsNotEmpty()
 	@IsUUID()
 	categoryId: string
+
+	@Transform(({ value }) => value?.trim())
+	@IsOptional()
+	imageUrl?: string;
 }

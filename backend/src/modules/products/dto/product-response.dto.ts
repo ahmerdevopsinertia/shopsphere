@@ -8,4 +8,5 @@ export class ProductResponseDto {
 	description?: string;
 	categoryName: string;
 	inventory?: ProductInventoryResponseDto | null;
+	imageUrl?: string;
 }

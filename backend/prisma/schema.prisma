@@ -94,6 +94,8 @@ model Product {
   cartItems CartItem[]
 
   wishlistItems WishlistItem[]
+
+  imageUrl String?
 }
 
 model Inventory {
