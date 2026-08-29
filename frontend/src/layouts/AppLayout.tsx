@@ -1,11 +1,28 @@
 import { Outlet, Link } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/auth.store';
 import { useLogout } from '../features/auth/hooks/useLogout';
+import { useProfile } from '../features/profile/hooks/useProfiles';
+import { useEffect } from 'react';
 
 export default function AppLayout() {
 	const user = useAuthStore((state => state.user));
 	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 	const logout = useLogout();
+
+	const {
+		loadProfile,
+		profile,
+	} = useProfile();
+
+	useEffect(() => {
+		if (!isAuthenticated) {
+			return;
+		}
+		void loadProfile();
+	}, [
+		isAuthenticated,
+		loadProfile,
+	]);
 
 	return (
 		<div className="min-h-screen bg-gray-50">
@@ -30,8 +47,13 @@ export default function AppLayout() {
 									>
 										Profile
 									</Link>
+									<Link to="/wishlist">
+										Wishlist
+									</Link>
 									<span>
-										{user?.email}
+										{profile
+											? `${profile.firstName} ${profile.lastName}`
+											: user?.email}
 									</span>
 									<button type="button" onClick={logout} className="rounded-lg border px-4 py-2 text-sm">
 										Logout

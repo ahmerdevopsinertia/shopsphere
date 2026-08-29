@@ -8,16 +8,13 @@ import Pagination from '../components/Pagination';
 
 import { useProducts } from '../hooks/useProducts';
 import { useCategories } from '../../categories/hooks/useCategories';
+import { useWishlist } from '../../wishlist/hooks/useWishlist';
 
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '../../auth/store/auth.store';
 
 export default function ProductsPage() {
-	/*
-	 * ============================
-	 * Products
-	 * ============================
-	 */
-
+	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 	const {
 		products,
 		meta,
@@ -26,12 +23,6 @@ export default function ProductsPage() {
 		loadProducts,
 	} = useProducts();
 
-	/*
-	 * ============================
-	 * Categories
-	 * ============================
-	 */
-
 	const {
 		categories,
 		loading: categoriesLoading,
@@ -39,14 +30,14 @@ export default function ProductsPage() {
 		loadCategories,
 	} = useCategories();
 
-	/*
-	 * ============================
-	 * Local UI State
-	 * ============================
-	 */
+	const {
+		loadWishlist,
+		isWishlisted,
+		addToWishlist,
+		removeFromWishlist,
+	} = useWishlist();
 
-	const [page, setPage] =
-		useState(1);
+	const [page, setPage] = useState(1);
 
 	const [searchInput, setSearchInput] =
 		useState('');
@@ -59,15 +50,15 @@ export default function ProductsPage() {
 		setSelectedCategory,
 	] = useState<string | null>(null);
 
+	const [wishlistLoading, setWishlistLoading] =
+		useState<string | null>(null);
+
 	const limit = 10;
 
 	/*
 	 * ============================
 	 * Load Categories
 	 * ============================
-	 *
-	 * Categories are loaded once
-	 * when the page is mounted.
 	 */
 
 	useEffect(() => {
@@ -76,23 +67,21 @@ export default function ProductsPage() {
 
 	/*
 	 * ============================
+	 * Load Wishlist
+	 * ============================
+	 */
+
+	useEffect(() => {
+		if(!isAuthenticated) {
+			return
+		}
+		void loadWishlist();
+	}, [loadWishlist]);
+
+	/*
+	 * ============================
 	 * Load Products
 	 * ============================
-	 *
-	 * Products are reloaded when:
-	 *
-	 * - page changes
-	 * - search changes
-	 *
-	 * Current backend supports:
-	 *
-	 * page
-	 * limit
-	 * search
-	 *
-	 * Category filtering will be
-	 * connected once backend supports
-	 * categoryId/categorySlug.
 	 */
 
 	useEffect(() => {
@@ -100,7 +89,8 @@ export default function ProductsPage() {
 			page,
 			limit,
 			search: search || undefined,
-			categoryId: selectedCategory || undefined,
+			categoryId:
+				selectedCategory || undefined,
 		});
 	}, [
 		page,
@@ -120,13 +110,7 @@ export default function ProductsPage() {
 	) => {
 		event.preventDefault();
 
-		/*
-		 * Always return to page 1
-		 * when a new search is performed.
-		 */
-
 		setPage(1);
-
 		setSearch(
 			searchInput.trim(),
 		);
@@ -134,39 +118,60 @@ export default function ProductsPage() {
 
 	/*
 	 * ============================
-	 * Category Selection
+	 * Category
 	 * ============================
-	 *
-	 * At the moment this only changes
-	 * the selected UI state.
-	 *
-	 * It does NOT call the Product API
-	 * because the backend ProductQueryDto
-	 * currently does not support category
-	 * filtering.
 	 */
 
 	const handleCategorySelect = (
 		categoryId: string | null,
 	) => {
 		setPage(1);
-		setSelectedCategory(
-			categoryId,
-		);
+		setSelectedCategory(categoryId);
 	};
 
 	/*
 	 * ============================
-	 * Render
+	 * Wishlist Toggle
 	 * ============================
 	 */
+
+	const handleWishlistToggle = async (
+		event: React.MouseEvent<HTMLButtonElement>,
+		productId: string,
+	) => {
+		event.preventDefault();
+		event.stopPropagation();
+
+		try {
+			setWishlistLoading(productId);
+
+			if (isWishlisted(productId)) {
+				await removeFromWishlist(
+					productId,
+				);
+			} else {
+				await addToWishlist({
+					productId,
+					name: '',
+					price: 0
+				});
+			}
+		} catch (error) {
+			console.error(
+				'Failed to update wishlist:',
+				error,
+			);
+		} finally {
+			setWishlistLoading(null);
+		}
+	};
 
 	return (
 		<div className="min-h-screen bg-gray-50">
 
-			{/* ================================= */}
-			{/* Categories Section                */}
-			{/* ================================= */}
+			{/* ============================ */}
+			{/* Categories                   */}
+			{/* ============================ */}
 
 			<section className="border-b bg-white">
 				<div className="mx-auto max-w-7xl px-6 py-6">
@@ -186,17 +191,12 @@ export default function ProductsPage() {
 					) : (
 						<div className="flex gap-3 overflow-x-auto pb-2">
 
-							{/* All Categories */}
-
 							<button
 								type="button"
 								onClick={() =>
-									handleCategorySelect(
-										null,
-									)
+									handleCategorySelect(null)
 								}
-								className={`whitespace-nowrap rounded-full px-5 py-2 text-sm font-medium transition ${selectedCategory ===
-									null
+								className={`whitespace-nowrap rounded-full px-5 py-2 text-sm font-medium transition ${selectedCategory === null
 									? 'bg-black text-white'
 									: 'bg-gray-100 text-gray-700 hover:bg-gray-200'
 									}`}
@@ -204,14 +204,10 @@ export default function ProductsPage() {
 								All
 							</button>
 
-							{/* Categories */}
-
 							{categories.map(
 								(category) => (
 									<button
-										key={
-											category.id
-										}
+										key={category.id}
 										type="button"
 										onClick={() =>
 											handleCategorySelect(
@@ -224,9 +220,7 @@ export default function ProductsPage() {
 											: 'bg-gray-100 text-gray-700 hover:bg-gray-200'
 											}`}
 									>
-										{
-											category.name
-										}
+										{category.name}
 									</button>
 								),
 							)}
@@ -237,15 +231,11 @@ export default function ProductsPage() {
 				</div>
 			</section>
 
-			{/* ================================= */}
-			{/* Products Section                  */}
-			{/* ================================= */}
+			{/* ============================ */}
+			{/* Products                     */}
+			{/* ============================ */}
 
 			<section className="mx-auto max-w-7xl px-6 py-8">
-
-				{/* ================================= */}
-				{/* Header + Search                  */}
-				{/* ================================= */}
 
 				<div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
@@ -254,23 +244,15 @@ export default function ProductsPage() {
 					</h1>
 
 					<form
-						onSubmit={
-							handleSearch
-						}
+						onSubmit={handleSearch}
 						className="flex w-full max-w-md gap-2"
 					>
-
 						<input
 							type="text"
-							value={
-								searchInput
-							}
-							onChange={(
-								event,
-							) =>
+							value={searchInput}
+							onChange={(event) =>
 								setSearchInput(
-									event.target
-										.value,
+									event.target.value,
 								)
 							}
 							placeholder="Search products..."
@@ -283,27 +265,9 @@ export default function ProductsPage() {
 						>
 							Search
 						</button>
-
 					</form>
 
 				</div>
-
-				{/* ================================= */}
-				{/* Selected Category Notice         */}
-				{/* ================================= */}
-
-				{/* {selectedCategory && (
-					<div className="mb-5 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800">
-						Category filtering will be
-						connected once the Product
-						API supports category
-						filtering.
-					</div>
-				)} */}
-
-				{/* ================================= */}
-				{/* Product Error                    */}
-				{/* ================================= */}
 
 				{productsError && (
 					<div className="mb-5 rounded-lg bg-red-50 p-4 text-red-600">
@@ -311,18 +275,13 @@ export default function ProductsPage() {
 					</div>
 				)}
 
-				{/* ================================= */}
-				{/* Product Loading                  */}
-				{/* ================================= */}
-
 				{productsLoading ? (
 					<div className="flex min-h-[300px] items-center justify-center">
 						<p className="text-gray-500">
 							Loading products...
 						</p>
 					</div>
-				) : products.length ===
-					0 ? (
+				) : products.length === 0 ? (
 					<div className="rounded-lg bg-white p-10 text-center">
 						<p className="text-gray-500">
 							No products found.
@@ -330,57 +289,103 @@ export default function ProductsPage() {
 					</div>
 				) : (
 					<>
-						{/* ================================= */}
-						{/* Product Grid                   */}
-						{/* ================================= */}
-
 						<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
 							{products.map(
-								(product) => (
-									<Link
-										key={product.id}
-										to={`/products/${product.id}`}
-										className="block overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-									>
-										{/* Product Image */}
+								(product) => {
+									const wishlisted =
+										isWishlisted(
+											product.id,
+										);
 
-										{product.imageUrl ? (
-											<img
-												src={product.imageUrl}
-												alt={product.name}
-												className="h-56 w-full object-cover"
-											/>
-										) : (
-											<div className="flex h-56 items-center justify-center bg-gray-100 text-gray-400">
-												No image
+									const wishlistBusy =
+										wishlistLoading ===
+										product.id;
+
+									return (
+										<Link
+											key={product.id}
+											to={`/products/${product.id}`}
+											className="group relative block overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+										>
+
+											{/* Wishlist */}
+
+											<button
+												type="button"
+												onClick={(
+													event,
+												) =>
+													handleWishlistToggle(
+														event,
+														product.id,
+													)}
+												disabled={
+													wishlistBusy
+												}
+												aria-label={
+													wishlisted
+														? 'Remove from wishlist'
+														: 'Add to wishlist'
+												}
+												className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-xl shadow-md transition hover:scale-110 disabled:opacity-50"
+											>
+												{wishlistBusy
+													? '...'
+													: wishlisted
+														? '❤️'
+														: '♡'}
+											</button>
+
+											{/* Image */}
+
+											{product.imageUrl ? (
+												<img
+													src={
+														product.imageUrl
+													}
+													alt={
+														product.name
+													}
+													className="h-56 w-full object-cover"
+												/>
+											) : (
+												<div className="flex h-56 items-center justify-center bg-gray-100 text-gray-400">
+													No image
+												</div>
+											)}
+
+											{/* Information */}
+
+											<div className="p-4">
+
+												<h3 className="font-semibold">
+													{
+														product.name
+													}
+												</h3>
+
+												<p className="mt-2 line-clamp-2 text-sm text-gray-500">
+													{
+														product.description
+													}
+												</p>
+
+												<p className="mt-4 text-lg font-bold">
+													AED{' '}
+													{product.price.toFixed(
+														2,
+													)}
+												</p>
+
 											</div>
-										)}
 
-										{/* Product Information */}
-
-										<div className="p-4">
-											<h3 className="font-semibold">
-												{product.name}
-											</h3>
-
-											<p className="mt-2 line-clamp-2 text-sm text-gray-500">
-												{product.description}
-											</p>
-
-											<p className="mt-4 text-lg font-bold">
-												AED {product.price.toFixed(2)}
-											</p>
-										</div>
-									</Link>
-								),
+										</Link>
+									);
+								},
 							)}
 
 						</div>
-
-						{/* ================================= */}
-						{/* Pagination                      */}
-						{/* ================================= */}
 
 						<Pagination
 							page={
@@ -394,25 +399,14 @@ export default function ProductsPage() {
 							onPageChange={(
 								nextPage,
 							) => {
-								setPage(
-									nextPage,
-								);
-
-								/*
-								 * Scroll to the
-								 * beginning of
-								 * the product
-								 * section.
-								 */
+								setPage(nextPage);
 
 								window.scrollTo({
 									top: 0,
-									behavior:
-										'smooth',
+									behavior: 'smooth',
 								});
 							}}
 						/>
-
 					</>
 				)}
 

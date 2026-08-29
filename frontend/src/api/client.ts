@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { authStorage } from '../features/auth/utils/auth-storage';
 import { refresh } from '../features/auth/api/auth.api';
 import { useAuthStore } from '../features/auth/store/auth.store';

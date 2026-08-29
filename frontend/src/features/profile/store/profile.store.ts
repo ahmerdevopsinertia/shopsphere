@@ -1,58 +1,58 @@
 import { create } from 'zustand';
 
 import type {
-	Profile,
+  Profile,
 } from '../types/profile.types';
 
 interface ProfileState {
-	profile: Profile | null;
+  profile: Profile | null;
 
-	loading: boolean;
+  loading: boolean;
 
-	error: string | null;
+  error: string | null;
 
-	setProfile: (
-		profile: Profile,
-	) => void;
+  setProfile: (
+    profile: Profile,
+  ) => void;
 
-	setLoading: (
-		loading: boolean,
-	) => void;
+  setLoading: (
+    loading: boolean,
+  ) => void;
 
-	setError: (
-		error: string | null,
-	) => void;
+  setError: (
+    error: string | null,
+  ) => void;
 
-	clearProfile: () => void;
+  clearProfile: () => void;
 }
 
 export const useProfileStore =
-	create<ProfileState>((set) => ({
-		profile: null,
+  create<ProfileState>((set) => ({
+    profile: null,
 
-		loading: false,
+    loading: false,
 
-		error: null,
+    error: null,
 
-		setProfile: (profile) =>
-			set({
-				profile,
-				error: null,
-			}),
+    setProfile: (profile) =>
+      set({
+        profile,
+        error: null,
+      }),
 
-		setLoading: (loading) =>
-			set({
-				loading,
-			}),
+    setLoading: (loading) =>
+      set({
+        loading,
+      }),
 
-		setError: (error) =>
-			set({
-				error,
-			}),
+    setError: (error) =>
+      set({
+        error,
+      }),
 
-		clearProfile: () =>
-			set({
-				profile: null,
-				error: null,
-			}),
-	}));
+    clearProfile: () =>
+      set({
+        profile: null,
+        error: null,
+      }),
+  }));

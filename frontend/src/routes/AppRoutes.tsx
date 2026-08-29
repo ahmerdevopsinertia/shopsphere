@@ -17,10 +17,7 @@ import CheckoutPage from '../features/checkout/pages/Checkout';
 import OrderDetailsPage from '../features/orders/pages/OrderDetailsPage';
 import OrdersPage from '../features/orders/pages/OrdersPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
-
-// function Home() {
-// 	return <div>ShopSphere Home</div>;
-// }
+import WishlistPage from '../features/wishlist/pages/WishlistPage';
 
 function Register() {
 	return <div>Register</div>;
@@ -77,10 +74,15 @@ export default function AppRoutes() {
 							path="/checkout"
 							element={<CheckoutPage />}
 						/>
-						
+
 						<Route
 							path="/profile"
 							element={<ProfilePage />}
+						/>
+
+						<Route
+							path="/wishlist"
+							element={<WishlistPage />}
 						/>
 
 					</Route>

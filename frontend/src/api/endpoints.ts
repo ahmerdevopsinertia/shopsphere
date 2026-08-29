@@ -32,7 +32,7 @@ export const API_ENDPOINTS = {
 	checkout: {
 		create: '/checkout'
 	},
-	
+
 	categories: {
 		list: '/categories',
 	},
@@ -40,4 +40,14 @@ export const API_ENDPOINTS = {
 	profile: {
 		get: '/profile',
 	},
+
+	wishlist: {
+		add: '/wishlist',
+		check: (productId: string) =>
+			`/wishlist/${productId}`,
+		list: `/wishlist`,
+		remove: (productId: string) =>
+			`/wishlist/${productId}`,
+	},
+
 } as const;
