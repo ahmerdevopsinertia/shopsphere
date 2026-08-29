@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth.api';
 import { useAuthStore } from '../store/auth.store';
 
+import { useState } from 'react';
+
 export function useLogout() {
   const navigate = useNavigate();
 
@@ -10,8 +12,16 @@ export function useLogout() {
     (state) => state.clearAuth,
   );
 
+  const [loading, setLoading] =
+		useState(false);
+
   const handleLogout = async () => {
+    if(loading) {
+      return;
+    }
+
     try {
+      setLoading(true);
       await logout();
     } catch (error) {
       console.error(
@@ -20,11 +30,15 @@ export function useLogout() {
       );
     } finally {
       clearAuth();
+      setLoading(false);
       navigate('/login', {
         replace: true,
       });
     }
   };
 
-  return handleLogout;
+  return {
+		handleLogout,
+		loading,
+	};
 }

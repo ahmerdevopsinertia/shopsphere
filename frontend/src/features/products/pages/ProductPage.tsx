@@ -72,7 +72,7 @@ export default function ProductsPage() {
 	 */
 
 	useEffect(() => {
-		if(!isAuthenticated) {
+		if (!isAuthenticated) {
 			return
 		}
 		void loadWishlist();
@@ -141,6 +141,18 @@ export default function ProductsPage() {
 	) => {
 		event.preventDefault();
 		event.stopPropagation();
+
+		if (!productId) {
+			return;
+		}
+
+		if (!isAuthenticated) {
+			window.alert(
+				'Please login to add products to your wishlist.',
+			);
+
+			return;
+		}
 
 		try {
 			setWishlistLoading(productId);

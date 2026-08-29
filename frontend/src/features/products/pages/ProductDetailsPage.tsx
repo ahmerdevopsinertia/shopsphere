@@ -83,7 +83,7 @@ export default function ProductDetailsPage() {
 	 */
 
 	useEffect(() => {
-		if(!isAuthenticated) {
+		if (!isAuthenticated) {
 			return
 		}
 		void loadWishlist();
@@ -176,6 +176,14 @@ export default function ProductDetailsPage() {
 				return;
 			}
 
+		if (!isAuthenticated) {
+			window.alert(
+				'Please login to add products to your wishlist.',
+			);
+
+			return;
+		}
+
 			try {
 				setWishlistLoading(true);
 
@@ -191,6 +199,8 @@ export default function ProductDetailsPage() {
 				} else {
 					await addToWishlist({
 						productId,
+						name: '',
+						price: 0
 					});
 				}
 			} catch (error) {
