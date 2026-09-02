@@ -1,0 +1,42 @@
+Sprint 10 — Deployment Roadmap
+
+We'll do this in controlled checkpoints rather than making all the changes at once.
+
+Sprint 10.1 — EC2 infrastructure
+Create EC2 instance
+Configure security group
+Create/choose SSH key pair
+Connect to EC2
+Update server
+Install Docker
+Verify Docker
+
+Sprint 10.2 — PostgreSQL
+Run PostgreSQL container
+Create production database
+Configure persistent Docker volume
+Configure database credentials
+Test PostgreSQL
+
+Sprint 10.3 — GHCR
+Authenticate EC2 with GHCR
+Pull ShopSphere image
+Run ShopSphere container
+Configure environment variables
+Run Prisma migrations
+Verify API
+
+Sprint 10.4 — Public API
+Configure HTTP/HTTPS
+Test API externally
+Verify frontend → backend communication
+Verify CORS
+Verify authentication/refresh flow
+Sprint 10.5 — Deployment automation
+Add EC2 deployment to GitHub Actions
+GitHub Actions → SSH → EC2
+Pull latest GHCR image
+Replace running container
+Run migrations
+Health check
+Rollback strategy
