@@ -286,3 +286,132 @@ jobs:
           docker rm -f shopsphere-backend-ci || true
           docker rm -f shopsphere-postgres-ci || true
           docker network rm shopsphere-ci || true
+
+          # ========================================================
+  # DEPLOY TO EC2
+  # ========================================================
+  deploy-to-ec2:
+
+    # Only deploy after the build-and-publish job succeeds
+    needs: build-and-publish
+
+    # Production environment
+    environment: production
+
+    # ONLY deploy pushes to main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # -----------------------------------------------------
+      # Configure SSH
+      # -----------------------------------------------------
+      - name: Configure SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+
+        run: |
+          mkdir -p ~/.ssh
+
+          printf '%s\n' "$EC2_SSH_KEY" \
+            > ~/.ssh/shopsphere-prod-key.pem
+
+          chmod 600 ~/.ssh/shopsphere-prod-key.pem
+
+          ssh-keyscan -H "$EC2_HOST" \
+            >> ~/.ssh/known_hosts
+
+      # -----------------------------------------------------
+      # Deploy application
+      # -----------------------------------------------------
+      - name: Deploy ShopSphere to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+
+          IMAGE: ghcr.io/ahmerdevopsinertia/shopsphere:${{ github.sha }}
+
+        run: |
+          ssh \
+            -i ~/.ssh/shopsphere-prod-key.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "IMAGE='$IMAGE' bash -s" <<'REMOTE'
+
+          set -e
+
+          echo "=========================================="
+          echo "ShopSphere Deployment"
+          echo "=========================================="
+
+          echo "Image:"
+          echo "$IMAGE"
+
+          echo ""
+          echo "Step 1: Pulling Docker image..."
+
+          docker pull "$IMAGE"
+
+          echo ""
+          echo "Step 2: Stopping existing backend..."
+
+          docker stop shopsphere-backend || true
+
+          echo ""
+          echo "Step 3: Removing existing backend..."
+
+          docker rm shopsphere-backend || true
+
+          echo ""
+          echo "Step 4: Starting new backend..."
+
+          docker run -d \
+            --name shopsphere-backend \
+            --restart unless-stopped \
+            --network shopsphere-network \
+            --env-file ~/shopsphere/.env \
+            -p 3000:3000 \
+            "$IMAGE"
+
+          echo ""
+          echo "Step 5: Waiting for application..."
+
+          for i in $(seq 1 30); do
+
+            if curl --silent --fail \
+              http://localhost:3000/health > /dev/null; then
+
+              echo ""
+              echo "=========================================="
+              echo "ShopSphere deployment successful!"
+              echo "=========================================="
+
+              exit 0
+            fi
+
+            echo "Waiting for ShopSphere..."
+            sleep 2
+
+          done
+
+          echo ""
+          echo "=========================================="
+          echo "ShopSphere health check FAILED"
+          echo "=========================================="
+
+          echo ""
+          echo "========== Container Status =========="
+
+          docker ps -a \
+            --filter name=shopsphere-backend
+
+          echo ""
+          echo "========== ShopSphere Logs =========="
+
+          docker logs --tail 100 shopsphere-backend
+
+          exit 1
+
+          REMOTE
