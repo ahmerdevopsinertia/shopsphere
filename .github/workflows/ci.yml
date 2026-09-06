@@ -287,7 +287,7 @@ jobs:
           docker rm -f shopsphere-postgres-ci || true
           docker network rm shopsphere-ci || true
 
-          # ========================================================
+  # ========================================================
   # DEPLOY TO EC2
   # ========================================================
   deploy-to-ec2:
