@@ -1,4 +1,4 @@
-import type { Product } from '../types/profile.types';
+import type { Product } from '../../products/types/product.types';
 import { Link } from 'react-router-dom';
 
 interface ProductCardProps {

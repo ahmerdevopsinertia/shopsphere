@@ -1,8 +1,17 @@
-import axios from 'axios';
+// import axios from 'axios';
+
+import axios, {
+  type InternalAxiosRequestConfig,
+} from 'axios';
 import { authStorage } from '../features/auth/utils/auth-storage';
 import { refresh } from '../features/auth/api/auth.api';
 import { useAuthStore } from '../features/auth/store/auth.store';
 import { API_ENDPOINTS } from './endpoints';
+
+type RetryableRequestConfig =
+  InternalAxiosRequestConfig & {
+    _retry?: boolean;
+  };
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,

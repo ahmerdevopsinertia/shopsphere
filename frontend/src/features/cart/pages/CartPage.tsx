@@ -11,7 +11,6 @@ export default function CartPage() {
 		loadCart,
 		updateItemQuantity,
 		removeCartItems,
-		removeCart,
 	} = useCart();
 
 	const [loadingCart, setLoadingCart] =
@@ -81,23 +80,6 @@ export default function CartPage() {
 			setError('');
 
 			await removeCartItems(productId);
-		} catch (error) {
-			console.error(
-				'Failed to remove cart:',
-				error,
-			);
-
-			setError(
-				'Unable to clear your cart.',
-			);
-		}
-	};
-
-	const handleRemoveCart = async () => {
-		try {
-			setError('');
-
-			await removeCart();
 		} catch (error) {
 			console.error(
 				'Failed to remove cart:',

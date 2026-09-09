@@ -26,7 +26,7 @@ export default function LoginPage() {
 				password
 			});
 
-			setAuth(response.user, response.accessToken, response.refreshToken);
+			setAuth(response.user, response.accessToken);
 
 			navigate('/', {
 				replace: true
