@@ -57,36 +57,39 @@ jobs:
           ls -lah dist
 
       - name: Test EC2 SSH connection
-  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  env:
-    EC2_HOST: ${{ secrets.EC2_HOST }}
-    EC2_USER: ${{ secrets.EC2_USER }}
-    EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
-  run: |
-    set -x
+        run: |
+          set -x
 
-    echo "Creating SSH directory..."
-    mkdir -p ~/.ssh
+          echo "Creating SSH directory..."
+          mkdir -p ~/.ssh
 
-    echo "Writing SSH key..."
-    printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/shopsphere-prod-key.pem
+          echo "Writing SSH key..."
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/shopsphere-prod-key.pem
 
-    echo "Setting permissions..."
-    chmod 600 ~/.ssh/shopsphere-prod-key.pem
+          echo "Setting permissions..."
+          chmod 600 ~/.ssh/shopsphere-prod-key.pem
 
-    echo "Testing key format..."
-    ssh-keygen -l -f ~/.ssh/shopsphere-prod-key.pem
+          echo "Checking key file..."
+          ls -l ~/.ssh/shopsphere-prod-key.pem
 
-    echo "Adding EC2 host key..."
-    ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          echo "Testing key format..."
+          ssh-keygen -l -f ~/.ssh/shopsphere-prod-key.pem
 
-    echo "Testing SSH..."
-    ssh \
-      -vvv \
-      -i ~/.ssh/shopsphere-prod-key.pem \
-      -o StrictHostKeyChecking=yes \
-      "$EC2_USER@$EC2_HOST" \
-      "echo 'SSH CONNECTION SUCCESSFUL'"
+          echo "Testing EC2 host resolution..."
+          getent hosts "$EC2_HOST"
 
-    echo "SSH test completed."
+          echo "Testing SSH..."
+          ssh \
+            -vvv \
+            -i ~/.ssh/shopsphere-prod-key.pem \
+            -o StrictHostKeyChecking=yes \
+            "$EC2_USER@$EC2_HOST" \
+            "echo 'SSH CONNECTION SUCCESSFUL'"
+
+          echo "SSH test completed."
