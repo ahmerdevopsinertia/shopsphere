@@ -54,3 +54,26 @@ jobs:
         run: |
           echo "Build contents:"
           ls -lah dist
+
+      - name: Deploy frontend to EC2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/ec2_key "$EC2_USER@$EC2_HOST" \
+            "sudo mkdir -p /var/www/shopsphere/frontend && sudo chown -R $EC2_USER:$EC2_USER /var/www/shopsphere/frontend"
+
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/ec2_key" \
+            frontend/dist/ \
+            "$EC2_USER@$EC2_HOST:/var/www/shopsphere/frontend/"
+
+          echo "Frontend deployed successfully."
