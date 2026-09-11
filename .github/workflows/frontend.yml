@@ -56,7 +56,7 @@ jobs:
           echo "Build contents:"
           ls -lah dist
 
-      - name: Deploy frontend to EC2
+      - name: Test EC2 SSH connection
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -64,28 +64,32 @@ jobs:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
         run: |
+          set -x
+
+          echo "Creating SSH directory..."
           mkdir -p ~/.ssh
 
-          printf '%s\n' "$EC2_SSH_KEY" \
-            > ~/.ssh/shopsphere-prod-key.pem
+          echo "Writing SSH key..."
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/shopsphere-prod-key.pem
 
+          echo "Setting permissions..."
           chmod 600 ~/.ssh/shopsphere-prod-key.pem
 
-          ssh-keyscan -H "$EC2_HOST" \
-            >> ~/.ssh/known_hosts
+          echo "Checking key file..."
+          ls -l ~/.ssh/shopsphere-prod-key.pem
 
-          echo "Creating frontend directory on EC2..."
+          echo "Testing key format..."
+          ssh-keygen -l -f ~/.ssh/shopsphere-prod-key.pem
 
+          echo "Testing EC2 host resolution..."
+          getent hosts "$EC2_HOST"
+
+          echo "Testing SSH..."
           ssh \
+            -vvv \
             -i ~/.ssh/shopsphere-prod-key.pem \
+            -o StrictHostKeyChecking=yes \
             "$EC2_USER@$EC2_HOST" \
-            "sudo mkdir -p /var/www/shopsphere/frontend && sudo chown -R $EC2_USER:$EC2_USER /var/www/shopsphere/frontend"
+            "echo 'SSH CONNECTION SUCCESSFUL'"
 
-          echo "Uploading frontend..."
-
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/shopsphere-prod-key.pem" \
-            frontend/dist/ \
-            "$EC2_USER@$EC2_HOST:/var/www/shopsphere/frontend/"
-
-          echo "Frontend deployed successfully."
+          echo "SSH test completed."
