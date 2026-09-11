@@ -81,12 +81,18 @@ jobs:
           echo "Adding EC2 host key.."
           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
-          echo "Testing SSH..."
-          ssh \
-            -vvv \
-            -i ~/.ssh/shopsphere-prod-key.pem \
-            -o StrictHostKeyChecking=yes \
-            "$EC2_USER@$EC2_HOST" \
-            "echo 'SSH CONNECTION SUCCESSFUL'"
+          echo "Creating frontend directory on EC2..."
 
-          echo "SSH test completed."
+          ssh \
+            -i ~/.ssh/shopsphere-prod-key.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "sudo mkdir -p /var/www/shopsphere/frontend && sudo chown -R $EC2_USER:$EC2_USER /var/www/shopsphere/frontend"
+
+          echo "Uploading frontend..."
+
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/shopsphere-prod-key.pem" \
+            frontend/dist/ \
+            "$EC2_USER@$EC2_HOST:/var/www/shopsphere/frontend/"
+
+          echo "Frontend deployed successfully."
