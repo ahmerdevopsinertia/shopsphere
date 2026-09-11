@@ -92,7 +92,7 @@ jobs:
 
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/shopsphere-prod-key.pem" \
-            frontend/dist/ \
+            dist/ \
             "$EC2_USER@$EC2_HOST:/var/www/shopsphere/frontend/"
 
           echo "Frontend deployed successfully."
