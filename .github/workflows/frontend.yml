@@ -75,14 +75,11 @@ jobs:
           echo "Setting permissions..."
           chmod 600 ~/.ssh/shopsphere-prod-key.pem
 
-          echo "Checking key file..."
-          ls -l ~/.ssh/shopsphere-prod-key.pem
-
           echo "Testing key format..."
           ssh-keygen -l -f ~/.ssh/shopsphere-prod-key.pem
 
-          echo "Testing EC2 host resolution..."
-          getent hosts "$EC2_HOST"
+          echo "Adding EC2 host key.."
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
           echo "Testing SSH..."
           ssh \
