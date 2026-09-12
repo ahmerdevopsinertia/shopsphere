@@ -242,14 +242,11 @@ jobs:
 
           docker tag \
             shopsphere-backend:ci \
-            "$IMAGE_ID:latest"
+            "$IMAGE_ID:$IMAGE_TAG"
 
           docker tag \
             shopsphere-backend:ci \
             "$IMAGE_ID:${GITHUB_SHA}"
-
-          echo "Docker images created:"
-          docker images "$IMAGE_ID"
 
           echo "Docker images created:"
           docker images "$IMAGE_ID"
