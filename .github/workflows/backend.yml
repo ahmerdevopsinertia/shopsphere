@@ -1,4 +1,4 @@
-name: ShopSphere CI/CD
+name: ShopSphere Backend CI/CD
 
 on:
   push:
