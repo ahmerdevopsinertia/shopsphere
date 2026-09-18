@@ -8,6 +8,7 @@ import { ProductStatus } from '@prisma/client';
 import { ValidatedOrderItem } from 'validated-order-item.interface';
 import { CheckoutRepository } from './checkout.repository';
 import { Logger } from '@nestjs/common';
+import { OrderEventsPublisher } from 'src/infrastructure/kafka/order-events.publisher';
 
 @Injectable()
 export class CheckoutService {
@@ -15,7 +16,8 @@ export class CheckoutService {
 		private readonly cartRepository: CartRepository,
 		private readonly productRepository: ProductsRepository,
 		private readonly inventoryRepository: InventoryRepository,
-		private readonly checkoutRepository: CheckoutRepository
+		private readonly checkoutRepository: CheckoutRepository,
+		private readonly orderEventsPublisher: OrderEventsPublisher
 	) { }
 
 	private readonly logger = new Logger(
@@ -117,6 +119,18 @@ export class CheckoutService {
 		this.logger.log(
 			`Order ${order.id} created successfully.`,
 		);
+
+		// publishing order event using Kafka
+		await this.orderEventsPublisher.publishOrderCreated({
+			orderId: order.id,
+			customerId: order.userId,
+			totalAmount: order.totalAmount,
+			currency: 'AED',
+			items: order.items.map((item: any) => ({
+				productId: item.productId,
+				quantity: item.quantity,
+			})),
+		});
 
 		return {
 			id: order!.id,

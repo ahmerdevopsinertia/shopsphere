@@ -31,6 +31,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
+import { KafkaModule } from './infrastructure/kafka/kafka.module';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     PaymentModule,
     RefreshTokenModule,
     WishlistModule,
+    KafkaModule
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [

@@ -9,10 +9,24 @@ import * as express from 'express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import * as cookieParser from 'cookie-parser';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+  });
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.KAFKA,
+    options: {
+      client: {
+        clientId: 'shopsphere-notification-consumer',
+        brokers: ['localhost:9092'],
+      },
+      consumer: {
+        groupId: 'shopsphere-order-notification',
+      },
+    },
   });
 
   const config = new DocumentBuilder()
@@ -82,6 +96,9 @@ async function bootstrap() {
   );
 
   app.useLogger(app.get(Logger));
+
+  // starting microservices
+  await app.startAllMicroservices();
 
   // Application Port
   const port =
