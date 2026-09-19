@@ -4,6 +4,7 @@ import { KafkaProducerService } from './kafka-producer.service';
 import { KafkaTestController } from './kafka-test.controller';
 import { OrderEventsPublisher } from './order-events.publisher';
 import { OrderNotificationConsumer } from './order-notification.consumer';
+import { OrderInventoryConsumer } from './order-inventory.consumer';
 
 @Module({
   imports: [
@@ -25,7 +26,6 @@ import { OrderNotificationConsumer } from './order-notification.consumer';
   ],
   controllers: [
     KafkaTestController,
-    OrderNotificationConsumer
   ],
   providers: [
     KafkaProducerService,
