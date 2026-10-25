@@ -28,4 +28,11 @@ export default () => ({
         ? 'strict'
         : 'lax',
   },
+  aws: {
+    region: process.env.AWS_REGION || 'eu-west-2',
+    profile: process.env.AWS_PROFILE,
+    snsTopicArn: process.env.SNS_TOPIC_ARN,
+    sqsEmailQueueUrl: process.env.SQS_EMAIL_QUEUE_URL,
+    sqsSmsQueueUrl: process.env.SQS_SMS_QUEUE_URL,
+  }
 });

@@ -17,9 +17,13 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "sqs:email-worker": "ts-node -r tsconfig-paths/register src/workers/sqs-email-worker/sqs-email.worker.ts",
+    "sqs:sms-worker": "ts-node -r tsconfig-paths/register src/workers/sqs-sms-worker/sqs-sms.worker.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sns": "^3.1156.0",
+    "@aws-sdk/client-sqs": "^3.1156.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
