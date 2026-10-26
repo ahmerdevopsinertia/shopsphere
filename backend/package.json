@@ -19,7 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "sqs:email-worker": "ts-node -r tsconfig-paths/register src/workers/sqs-email-worker/sqs-email.worker.ts",
-    "sqs:sms-worker": "ts-node -r tsconfig-paths/register src/workers/sqs-sms-worker/sqs-sms.worker.ts"
+    "sqs:sms-worker": "ts-node -r tsconfig-paths/register src/workers/sqs-sms-worker/sqs-sms.worker.ts",
+    "build:lambdas": "esbuild src/infrastructure/aws-lambda/email-notification.handler.ts src/infrastructure/aws-lambda/sms-notification.handler.ts --bundle --platform=node --target=node22 --format=cjs --outdir=dist-lambda"
   },
   "dependencies": {
     "@aws-sdk/client-sns": "^3.1156.0",
@@ -67,6 +68,7 @@
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
+    "esbuild": "^0.28.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

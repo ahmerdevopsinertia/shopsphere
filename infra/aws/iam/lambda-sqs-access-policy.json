@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConsumeShopSphereNotificationQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": [
+        "arn:aws:sqs:eu-west-2:217422362981:shopsphere-notification-email",
+        "arn:aws:sqs:eu-west-2:217422362981:shopsphere-notification-sms"
+      ]
+    }
+  ]
+}

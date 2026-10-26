@@ -1,0 +1,21 @@
+{
+  "eventId": "test-notification-lambda-20261026-001",
+  "eventType": "notification.requested",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-26T18:00:00.000Z",
+  "source": "shopsphere-notification-service",
+  "data": {
+    "orderId": "TEST-LAMBDA-001",
+    "customerId": "TEST-CUSTOMER-001",
+    "totalAmount": 39,
+    "currency": "AED",
+    "items": [
+      {
+        "productId": "TEST-PRODUCT-001",
+        "productName": "ShopSphere Lambda Test Product",
+        "quantity": 1,
+        "unitPrice": 39
+      }
+    ]
+  }
+}

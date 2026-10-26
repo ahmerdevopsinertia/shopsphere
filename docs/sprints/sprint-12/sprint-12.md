@@ -431,3 +431,474 @@ queues, and checkout publishing flow will be preserved.
 The Lambda implementation will include partial batch failure handling
 and CloudWatch log verification. Dead-letter queues remain deferred
 unless the scope is explicitly changed.
+
+ 
+
+## Additional Implementation Update — 26 October 2026
+
+### 1. AWS Lambda Notification Consumers
+
+Implemented two AWS Lambda functions to consume notification events from SQS queues:
+
+- **Email Lambda:** `shopsphere-email-notification`
+- **SMS Lambda:** `shopsphere-sms-notification`
+- **Runtime:** Node.js 22
+- **Memory:** 128 MB
+- **Timeout:** 10 seconds
+
+Both Lambda functions are deployed and active in the `eu-west-2` (London) AWS region.
+
+### 2. Event Processing Architecture
+
+The notification flow has been implemented as follows:
+
+1. Checkout creates the order.
+2. The checkout service publishes a `notification.requested` event to the SNS topic.
+3. SNS distributes the event to the subscribed email and SMS SQS queues.
+4. Each SQS queue triggers its corresponding Lambda function.
+5. The Lambda function extracts the event from the SNS message envelope, processes it, and logs the simulated notification delivery.
+
+**Resources:**
+
+- SNS topic: `shopsphere-notification-events`
+- Email queue: `shopsphere-notification-email`
+- SMS queue: `shopsphere-notification-sms`
+- Email consumer: `shopsphere-email-notification`
+- SMS consumer: `shopsphere-sms-notification`
+
+### 3. Event Contract
+
+The notification event uses the following structure:
+
+```json
+{
+  "eventId": "string",
+  "eventType": "notification.requested",
+  "eventVersion": 1,
+  "occurredAt": "ISO-8601 timestamp",
+  "source": "shopsphere-notification-service",
+  "data": {
+    "orderId": "string",
+    "customerId": "string",
+    "totalAmount": 0,
+    "currency": "string",
+    "items": [
+      {
+        "productId": "string",
+        "productName": "string",
+        "quantity": 1,
+        "unitPrice": 0
+      }
+    ]
+  }
+}
+```
+
+SNS delivers the notification to SQS using an SNS envelope. The Lambda consumers extract the JSON event from the envelope's `Message` field.
+
+### 4. Reliability and Error Handling
+
+- Both Lambda functions are connected to their respective SQS queues through enabled event source mappings.
+- The event source mappings use `ReportBatchItemFailures` to support reporting individual failed records.
+- The Lambda execution role has CloudWatch logging permissions and the required SQS access policy.
+- The SQS visibility timeout is configured to 60 seconds.
+- Dead-letter queues have not yet been configured.
+
+### 5. Integration Testing and Verification
+
+The following checks have been completed:
+
+- Built the Lambda bundles using esbuild for the Node.js 22 runtime.
+- Created deployment ZIP files containing the respective Lambda handler files.
+- Deployed both Lambda functions and verified their active status.
+- Invoked both functions directly with an empty SQS records array and confirmed successful responses.
+- Triggered the notification flow through a real checkout API request.
+- Verified in CloudWatch Logs that both consumers processed the same order and notification event.
+- Queried both SQS queues after processing and observed zero available and zero in-flight messages.
+
+**Verified checkout result:**
+
+- Order ID: `763c70e9-51db-487f-b72c-3aec5359222e`
+- Order status: `PENDING`
+- Payment status: `PENDING`
+- Order total: AED 29
+
+Both the email and SMS Lambda logs contained the same event ID and order ID for this test.
+
+### 6. Current Limitations
+
+- Email and SMS delivery is simulated through application logging. No external email or SMS provider is connected.
+- Dead-letter queues and dedicated failure-recovery testing remain pending.
+- Automated tests for the Lambda consumers and notification flow remain future work.
+- The checkout service creates the order before publishing the notification event. If event publishing fails, an order may already exist even if the checkout request reports an error. A transactional outbox can be evaluated to improve reliability.
+- Monitoring, alerting, and deployment automation for the Lambda functions can be enhanced in a future iteration.
+
+### 7. Next Steps
+
+1. Test malformed events and individual-record failure handling.
+2. Configure dead-letter queues and validate retry and recovery behavior.
+3. Add automated tests for event parsing, validation, and notification processing.
+4. Evaluate a transactional outbox for reliable event publishing after order creation.
+5. Integrate actual email and SMS providers when required.
+6. Improve monitoring, alerting, and deployment automation.
+
+
+-----
+
+--- Create AWS policy command in created file
+
+cat > ../infra/aws/iam/lambda-trust-policy.json <<'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+
+output
+
+
+
+--- Create AWS role command
+
+aws iam create-role \
+  --role-name ShopSphereNotificationLambdaRole \
+  --assume-role-policy-document file://../infra/aws/iam/lambda-trust-policy.json \
+  --description "Execution role for ShopSphere email and SMS notification Lambdas" \
+  --profile AdministratorAccess-217422362981
+
+--- Attach Role a Policy command (CloudWatch logging permissions policy)
+
+aws iam attach-role-policy \
+  --role-name ShopSphereNotificationLambdaRole \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole \
+  --profile AdministratorAccess-217422362981
+
+--- List Role Policies command
+aws iam list-attached-role-policies \
+  --role-name ShopSphereNotificationLambdaRole \
+  --profile AdministratorAccess-217422362981 \
+  --output table
+
+--- Create AWS policy command
+
+aws iam create-policy \
+  --policy-name ShopSphereNotificationSQSAccess \
+  --policy-document file://../infra/aws/iam/lambda-sqs-access-policy.json \
+  --description "Allow ShopSphere notification Lambdas to consume email and SMS SQS queues" \
+  --profile AdministratorAccess-21742236298
+
+  output
+
+  {
+    "Policy": {
+        "PolicyName": "ShopSphereNotificationSQSAccess",
+        "PolicyId": "ANPATFH3B7FS7ZMJZP442",
+        "Arn": "arn:aws:iam::217422362981:policy/ShopSphereNotificationSQSAccess",
+        "Path": "/",
+        "DefaultVersionId": "v1",
+        "AttachmentCount": 0,
+        "PermissionsBoundaryUsageCount": 0,
+        "IsAttachable": true,
+        "CreateDate": "2026-10-26T15:59:08+00:00",
+        "UpdateDate": "2026-10-26T15:59:08+00:00"
+    }
+}
+
+--- Command to create Lambda function
+
+aws lambda create-function \
+  --function-name shopsphere-sms-notification \
+  --runtime nodejs22.x \
+  --role arn:aws:iam::217422362981:role/ShopSphereNotificationLambdaRole \
+  --handler sms-notification.handler.handler \
+  --zip-file fileb://dist-lambda/packages/shopsphere-sms-notification.zip \
+  --timeout 10 \
+  --memory-size 128 \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981
+
+  Output
+
+  {
+    "FunctionName": "shopsphere-sms-notification",
+    "FunctionArn": "arn:aws:lambda:eu-west-2:217422362981:function:shopsphere-sms-notification",
+    "Runtime": "nodejs22.x",
+    "Role": "arn:aws:iam::217422362981:role/ShopSphereNotificationLambdaRole",
+    "Handler": "sms-notification.handler.handler",
+    "CodeSize": 1142,
+    "Description": "",
+    "Timeout": 10,
+    "MemorySize": 128,
+    "LastModified": "2026-10-26T17:45:30.770+0000",
+    "CodeSha256": "PCmkyYn8B9mU7pKDCbN0Dlpahg6mgWxwCXxikZcmVzU=",
+    "Version": "$LATEST",
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    },
+    "RevisionId": "22867cd7-a0f9-4de0-b644-0bc09306150e",
+    "State": "Pending",
+    "StateReason": "The function is being created.",
+    "StateReasonCode": "Creating",
+    "PackageType": "Zip",
+    "Architectures": [
+        "x86_64"
+    ],
+    "EphemeralStorage": {
+        "Size": 512
+    },
+    "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+    },
+    "RuntimeVersionConfig": {
+        "RuntimeVersionArn": "arn:aws:lambda:eu-west-2::runtime:564bb908e71037c3cb0bf7362c5f4bcfeb80c4622ce5ed46e7265c4db411e47c"
+    },
+    "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/shopsphere-sms-notification"
+    }
+}
+
+--- Command to update Lambda function
+aws lambda update-function-code \
+  --function-name shopsphere-sms-notification \
+  --zip-file fileb://dist-lambda/packages/shopsphere-sms-notification.zip \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981
+{
+    "FunctionName": "shopsphere-sms-notification",
+    "FunctionArn": "arn:aws:lambda:eu-west-2:217422362981:function:shopsphere-sms-notification",
+    "Runtime": "nodejs22.x",
+    "Role": "arn:aws:iam::217422362981:role/ShopSphereNotificationLambdaRole",
+    "Handler": "sms-notification.handler",
+    "CodeSize": 1126,
+    "Description": "",
+    "Timeout": 10,
+    "MemorySize": 128,
+    "LastModified": "2026-10-26T18:24:13.000+0000",
+    "CodeSha256": "MoHhdFFgPpn/KRNnZWOlgLuUJeMgXeGhI5LvXnu3i9E=",
+    "Version": "$LATEST",
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    },
+    "RevisionId": "aa791eb1-3ca2-4a8e-8ab5-239500382388",
+    "State": "Active",
+    "LastUpdateStatus": "InProgress",
+    "LastUpdateStatusReason": "The function is being created.",
+    "LastUpdateStatusReasonCode": "Creating",
+    "PackageType": "Zip",
+    "Architectures": [
+        "x86_64"
+    ],
+    "EphemeralStorage": {
+        "Size": 512
+    },
+    "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+    },
+    "RuntimeVersionConfig": {
+        "RuntimeVersionArn": "arn:aws:lambda:eu-west-2::runtime:564bb908e71037c3cb0bf7362c5f4bcfeb80c4622ce5ed46e7265c4db411e47c"
+    },
+    "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/shopsphere-sms-notification"
+    }
+}
+
+
+--- Command to list Lambda created function
+
+aws lambda list-functions \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981 \
+  --query "Functions[?FunctionName=='shopsphere-email-notification' || FunctionName=='shopsphere-sms-notification'].[FunctionName,Runtime,Handler,State,LastUpdateStatus]" \
+  --output table
+
+--- Command to get Lambda function
+
+aws lambda get-function-configuration \
+  --function-name shopsphere-sms-notification \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981 \
+  --query '{Handler:Handler,State:State,LastUpdateStatus:LastUpdateStatus}' \
+  --output json
+{
+    "Handler": "sms-notification.handler",
+    "State": "Active",
+    "LastUpdateStatus": "Successful"
+}
+
+
+--- Command to invoke Lambda function
+
+aws lambda invoke \
+  --function-name shopsphere-sms-notification \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981 \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"Records":[]}' \
+  /tmp/shopsphere-sms-response.json
+{
+    "StatusCode": 200,
+    "ExecutedVersion": "$LATEST"
+}
+faryalahmer@Faryals-MacBook backend % cat /tmp/shopsphere-sms-response.json
+{"batchItemFailures":[]}%          
+
+--- Command to create source mapping
+
+aws lambda create-event-source-mapping \
+  --function-name shopsphere-email-notification \
+  --event-source-arn arn:aws:sqs:eu-west-2:217422362981:shopsphere-notification-email \
+  --batch-size 10 \
+  --function-response-types ReportBatchItemFailures \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981
+{
+    "UUID": "2c98bb46-cd2c-49a7-abc1-77c8f4fea482",
+    "BatchSize": 10,
+    "MaximumBatchingWindowInSeconds": 0,
+    "EventSourceArn": "arn:aws:sqs:eu-west-2:217422362981:shopsphere-notification-email",
+    "FunctionArn": "arn:aws:lambda:eu-west-2:217422362981:function:shopsphere-email-notification",
+    "LastModified": "2026-10-26T21:54:23.676000+04:00",
+    "State": "Creating",
+    "StateTransitionReason": "USER_INITIATED",
+    "FunctionResponseTypes": [
+        "ReportBatchItemFailures"
+    ],
+    "EventSourceMappingArn": "arn:aws:lambda:eu-west-2:217422362981:event-source-mapping:2c98bb46-cd2c-49a7-abc1-77c8f4fea482"
+}
+
+--- Command to Get Event source mapping
+
+aws lambda get-event-source-mapping \
+  --uuid 7ad03822-d91f-4014-a54d-b4f88752a39e \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981
+{
+    "UUID": "7ad03822-d91f-4014-a54d-b4f88752a39e",
+    "BatchSize": 10,
+    "MaximumBatchingWindowInSeconds": 0,
+    "EventSourceArn": "arn:aws:sqs:eu-west-2:217422362981:shopsphere-notification-sms",
+    "FunctionArn": "arn:aws:lambda:eu-west-2:217422362981:function:shopsphere-sms-notification",
+    "LastModified": "2026-10-26T21:55:04.964000+04:00",
+    "State": "Enabled",
+    "StateTransitionReason": "USER_INITIATED",
+    "FunctionResponseTypes": [
+        "ReportBatchItemFailures"
+    ],
+    "EventSourceMappingArn": "arn:aws:lambda:eu-west-2:217422362981:event-source-mapping:7ad03822-d91f-4014-a54d-b4f88752a39e"
+}
+
+--- Command to test SNS 
+
+mkdir -p ../infra/aws
+
+cat > ../infra/aws/test-notification-event.json <<'EOF'
+{
+  "eventId": "test-notification-lambda-20261026-001",
+  "eventType": "notification.requested",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-26T18:00:00.000Z",
+  "source": "shopsphere-notification-service",
+  "data": {
+    "orderId": "TEST-LAMBDA-001",
+    "customerId": "TEST-CUSTOMER-001",
+    "totalAmount": 39,
+    "currency": "AED",
+    "items": [
+      {
+        "productId": "TEST-PRODUCT-001",
+        "productName": "ShopSphere Lambda Test Product",
+        "quantity": 1,
+        "unitPrice": 39
+      }
+    ]
+  }
+}
+EOF
+
+aws sns publish \
+  --topic-arn arn:aws:sns:eu-west-2:217422362981:shopsphere-notification-events \
+  --message file://../infra/aws/test-notification-event.json \
+  --subject "ShopSphere Lambda Integration Test" \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981
+
+Output
+{
+    "MessageId": "d5753502-59a2-5948-948b-565bce70277f"
+}
+
+--- Command to check CloudWatch logs
+aws logs tail /aws/lambda/shopsphere-sms-notification \
+  --since 5m \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981
+
+  Output
+
+  START RequestId: b626b50e-d193-5205-bca4-d6574c49ea42 Version: $LATEST
+2026-10-26T18:27:52.449000+00:00 2026/10/26/[$LATEST]2c7f6d94fb8746c5b182094189d029bf 2026-10-26T18:27:52.449Z	b626b50e-d193-5205-bca4-d6574c49ea42	INFO	Simulated EMAIL notification delivery {
+  eventId: 'test-notification-lambda-20261026-001',
+  orderId: 'TEST-LAMBDA-001',
+  customerId: 'TEST-CUSTOMER-001',
+  totalAmount: 39,
+  currency: 'AED'
+}
+2026-10-26T18:27:52.471000+00:00 2026/10/26/[$LATEST]2c7f6d94fb8746c5b182094189d029bf END RequestId: b626b50e-d193-5205-bca4-d6574c49ea42
+2026-10-26T18:27:52.471000+00:00 2026/10/26/[$LATEST]2c7f6d94fb8746c5b182094189d029bf REPORT RequestId: b626b50e-d193-5205-bca4-d6574c49ea42	Duration: 36.63 ms	Billed Duration: 37 ms	Memory Size: 128 MB	Max Memory Used: 71 MB
+
+and
+
+aws logs tail /aws/lambda/shopsphere-sms-notification \
+  --since 5m \
+  --region eu-west-2 \
+  --profile AdministratorAccess-217422362981
+output
+
+START RequestId: 13be553a-55b3-53a4-b7c0-3663f44820cb Version: $LATEST
+2026-10-26T18:45:17.209000+00:00 2026/10/26/[$LATEST]16bc2177e00c4743b2b62f123feb9346 2026-10-26T18:45:17.209Z	13be553a-55b3-53a4-b7c0-3663f44820cb	INFO	Simulated EMAIL notification delivery {
+  eventId: '44044279-c024-4a5c-b9a8-dc3985f261f7',
+  orderId: '763c70e9-51db-487f-b72c-3aec5359222e',
+  customerId: '3be55d74-7904-47ae-a98b-325f55ac2843',
+  totalAmount: 29,
+  currency: 'AED'
+}
+2026-10-26T18:45:17.231000+00:00 2026/10/26/[$LATEST]16bc2177e00c4743b2b62f123feb9346 END RequestId: 13be553a-55b3-53a4-b7c0-3663f44820cb
+2026-10-26T18:45:17.231000+00:00 2026/10/26/[$LATEST]16bc2177e00c4743b2b62f123feb9346 REPORT RequestId: 13be553a-55b3-53a4-b7c0-3663f44820cb	Duration: 22.32 ms	Billed Duration: 23 ms	Memory Size: 128 MB	Max Memory Used: 71 MB
+
+API response also confirms SNS -> SQS also working
+
+  {
+    "success": true,
+    "data": {
+        "id": "763c70e9-51db-487f-b72c-3aec5359222e",
+        "status": "PENDING",
+        "totalAmount": 29,
+        "paymentStatus": "PENDING",
+        "paymentReference": "PAY-4bdbe6bb-73cf-4d71-96be-9cf30a98a491",
+        "items": [
+            {
+                "productId": "bf939da3-bb34-4032-ac0b-e58140f2124f",
+                "productName": "Clear iPhone 17 Case",
+                "quantity": 1,
+                "unitPrice": 29
+            }
+        ]
+    }
+}
+
+--- Command to rebuild Lambda bundles
+
+npm run build:lambdas
+
