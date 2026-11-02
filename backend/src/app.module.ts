@@ -31,6 +31,10 @@ import { LoggerModule } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
+import { KafkaModule } from './infrastructure/kafka/kafka.module';
+import { AwsSnsModule } from './infrastructure/aws-sns/aws-sns.module';
+import { AwsSqsModule } from './infrastructure/aws-sqs/aws-sqs.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -62,7 +66,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
             'req.headers.authorization',
             'req.headers.cookie',
             'req.headers.x-gateway-apikey',
-             'req.body.refreshToken',
+            'req.body.refreshToken',
           ],
         },
       }),
@@ -97,6 +101,10 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     PaymentModule,
     RefreshTokenModule,
     WishlistModule,
+    KafkaModule,
+    AwsSnsModule,
+    AwsSqsModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [

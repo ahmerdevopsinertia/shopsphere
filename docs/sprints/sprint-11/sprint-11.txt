@@ -1,0 +1,726 @@
+Perfect 👍
+
+We’re aligned on Sprint 11 — Kafka Event-Driven Architecture.
+
+Next: Step 2 — Event Contract + Kafka Topic Design
+
+We’ll define, before writing any Kafka code:
+
+Event name → order.created
+Topic → shopsphere.order.events
+Event envelope → standard structure for all future events
+Event payload → what information order.created actually carries
+Partition key → why we choose orderId
+Consumer group → how the notification consumer will work
+Versioning → how we can evolve events without breaking consumers
+
+And importantly, I'll explain the reasoning behind each decision, rather than just giving you JSON/code.
+
+After Step 2 is finalized, we'll move to Step 3 — Local Kafka Setup with Docker.
+
+OK got it
+
+👍 Great. We’ll proceed with Sprint 11 — Step 2: Event Contract + Kafka Topic Design when you’re ready.
+
+yes ready
+
+Excellent. Let's start Sprint 11 — Step 2: Event Contract + Kafka Topic Design.
+
+We’ll treat this as a proper production-style design exercise before touching Kafka code.
+
+1. Event: order.created
+
+Our first event will represent:
+
+An order has been successfully created and persisted by ShopSphere.
+
+The important distinction is that this is an event, not a command.
+
+Command:
+"Create this order"
+
+Event:
+"Order was created"
+
+The producer doesn't tell consumers what to do. It tells them what happened.
+
+2. Kafka Topic
+
+We'll use:
+
+shopsphere.order.events
+
+Why not simply orders?
+
+Because as ShopSphere grows, we may have several event types:
+
+shopsphere.order.events
+    ├── order.created
+    ├── order.confirmed
+    ├── order.cancelled
+    └── order.shipped
+
+Kafka topics are generally organized around a stream/domain of related events.
+
+For our learning project, this gives us a good opportunity to understand how multiple event types can live in one topic.
+
+3. Event Envelope
+
+I recommend that every ShopSphere event follows the same outer structure.
+
+{
+  "eventId": "uuid",
+  "eventType": "order.created",
+  "eventVersion": 1,
+  "occurredAt": "2026-09-14T19:30:00.000Z",
+  "source": "shopsphere-order-service",
+  "data": {}
+}
+
+Let's understand each field.
+
+Field	Purpose
+eventId	Unique ID for this particular event
+eventType	What happened
+eventVersion	Allows us to evolve the event later
+occurredAt	When the event occurred
+source	Which application/component produced it
+data	Actual business information
+Why have an envelope?
+
+Imagine six different events:
+
+order.created
+order.cancelled
+payment.completed
+product.updated
+user.registered
+shipment.created
+
+Without a standard envelope, every consumer would need to understand a different structure.
+
+With an envelope:
+
+Event
+ ├── metadata
+ └── data
+
+the infrastructure becomes predictable.
+
+4. order.created Payload
+
+Now let's define the actual data.
+
+For our first implementation:
+
+{
+  "orderId": "8b7c1d2e-...",
+  "customerId": "4f6a9b1c-...",
+  "totalAmount": 249.99,
+  "currency": "AED",
+  "items": [
+    {
+      "productId": "product-123",
+      "quantity": 2
+    }
+  ]
+}
+
+So the complete event becomes:
+
+{
+  "eventId": "event-uuid",
+  "eventType": "order.created",
+  "eventVersion": 1,
+  "occurredAt": "2026-09-14T19:30:00.000Z",
+  "source": "shopsphere-order-service",
+  "data": {
+    "orderId": "order-uuid",
+    "customerId": "customer-uuid",
+    "totalAmount": 249.99,
+    "currency": "AED",
+    "items": [
+      {
+        "productId": "product-123",
+        "quantity": 2
+      }
+    ]
+  }
+}
+Important design decision
+
+Notice what we're not putting here:
+
+customer password
+customer address
+credit card information
+internal database fields
+
+An event should contain the information consumers need, not simply a dump of the database row.
+
+5. Partition Key
+
+This is an important Kafka concept.
+
+For our order events, we'll use:
+
+orderId
+
+as the Kafka message key.
+
+Conceptually:
+
+Kafka message
+
+Key:
+orderId
+
+Value:
+order.created event
+
+Why?
+
+Suppose:
+
+order.created
+order.confirmed
+order.shipped
+order.cancelled
+
+all belong to the same order.
+
+Using:
+
+orderId
+
+as the key allows Kafka to keep events for that order in the same partition.
+
+That gives us an important ordering property:
+
+order.created
+      ↓
+order.confirmed
+      ↓
+order.shipped
+
+rather than potentially:
+
+order.shipped
+order.created
+order.confirmed
+
+For an order-processing system, maintaining per-order ordering is very useful.
+
+6. Consumer Group
+
+Our first consumer will be:
+
+Order Notification Consumer
+
+We'll put it in a consumer group:
+
+shopsphere-order-notification
+
+Architecture:
+
+                    Kafka
+                      │
+              shopsphere.order.events
+                      │
+             ┌────────┴────────┐
+             │                 │
+             ▼                 ▼
+       Notification        Analytics
+        Consumer             Consumer
+             │                 │
+     consumer group      consumer group
+     "order-notification" "analytics"
+
+This is one of the most important Kafka concepts we'll learn.
+
+A message can be processed by multiple independent consumer groups.
+
+So later:
+
+order.created
+       │
+       ▼
+     Kafka
+       │
+ ┌─────┼─────────────┐
+ ▼     ▼             ▼
+Email  Inventory    Analytics
+
+Each application can independently consume the same event.
+
+7. Why Not Create Three Kafka Topics?
+
+You might naturally think:
+
+orders-created
+orders-confirmed
+orders-cancelled
+
+For our project, we're deliberately starting with:
+
+shopsphere.order.events
+
+because we want to learn:
+
+event types
+event filtering
+partitions
+consumer groups
+offsets
+ordering
+event versioning
+
+without creating unnecessary infrastructure.
+
+Later, if the domain or throughput requires it, we can reconsider the topic strategy.
+
+8. Final Architecture for Step 2
+
+So our design is now:
+
+                    ShopSphere Backend
+                           │
+                           │
+                      OrderService
+                           │
+                           ▼
+                      PostgreSQL
+                           │
+                           │
+                    order.created
+                           │
+                           ▼
+                    Kafka Producer
+                           │
+                           ▼
+               ┌──────────────────────┐
+               │ shopsphere.order.events│
+               └──────────────────────┘
+                           │
+                           ▼
+              Order Notification Consumer
+                           │
+                           ▼
+                    Log / simulate
+                    notification
+
+And the Kafka message:
+
+Topic:
+shopsphere.order.events
+
+Key:
+orderId
+
+Value:
+{
+  eventId,
+  eventType,
+  eventVersion,
+  occurredAt,
+  source,
+  data
+}
+9. One Production Concern — We'll Come Back to This
+
+Earlier we said:
+
+Save DB
+   ↓
+Publish Kafka event
+
+That's perfectly fine for learning the basic Kafka flow, but there is a real production problem:
+
+PostgreSQL succeeds
+       ↓
+Application crashes
+       ↓
+Kafka publish never happens
+
+Now the database says:
+
+Order exists.
+
+But Kafka says:
+
+I never heard about it.
+
+This is the classic dual-write problem.
+
+Later in Sprint 11, we'll learn the Transactional Outbox Pattern and improve our architecture:
+
+OrderService
+     │
+     ├── Order
+     └── OutboxEvent
+             │
+             ▼
+        PostgreSQL
+             │
+             ▼
+       Outbox Publisher
+             │
+             ▼
+           Kafka
+
+But we will not start there. First we'll understand Kafka itself, then introduce the production-grade reliability pattern. That will make the reason for the Outbox Pattern much clearer.
+
+✅ Step 2 Decision Record
+Item	Decision
+Event	order.created
+Topic	shopsphere.order.events
+Event version	1
+Message key	orderId
+Producer	Order module
+Consumer	Order Notification Consumer
+Consumer group	shopsphere-order-notification
+Database	PostgreSQL remains source of truth
+Event format	Standard envelope + data
+Kafka environment	Local Docker initially
+Outbox	Later, after basic Kafka implementation
+
+Step 2 is now complete.
+
+----
+
+Command to create Kafka Topic
+
+docker exec shopsphere-kafka \
+  /opt/kafka/bin/kafka-topics.sh \
+  --create \
+  --topic shopsphere.order.events \
+  --bootstrap-server localhost:9092 \
+  --partitions 1 \
+  --replication-factor 1
+WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
+Created topic shopsphere.order.events.
+
+-----
+
+Command to check Kafka consumer logs 
+
+
+docker exec -it shopsphere-kafka \
+  /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic shopsphere.order.events \
+  --from-beginning
+
+
+  -----
+
+
+  # Sprint 11 — Kafka Event-Driven Architecture
+
+## 1. Business Requirement
+
+When a customer successfully creates an order, ShopSphere must publish an `order.created` event.
+
+Downstream systems should be able to consume this event asynchronously without the Order module directly calling those systems.
+
+### Goal
+
+Decouple order creation from downstream processing using Apache Kafka.
+
+### Initial Consumer
+
+The first consumer is `OrderNotificationConsumer`, which simulates notification processing by logging the received order event.
+
+---
+
+## 2. Technical Design
+
+### Architecture
+
+React Frontend
+↓
+NestJS Backend
+↓
+OrdersService
+↓
+PostgreSQL
+↓
+OrderEventsPublisher
+↓
+Kafka Producer
+↓
+`shopsphere.order.events`
+↓
+OrderNotificationConsumer
+
+### Components
+
+| Component                   | Responsibility                     |
+| --------------------------- | ---------------------------------- |
+| `OrdersService`             | Creates the order                  |
+| `OrderEventsPublisher`      | Builds and publishes domain events |
+| `KafkaProducerService`      | Handles Kafka publishing           |
+| Kafka Topic                 | Transports order events            |
+| `OrderNotificationConsumer` | Consumes order events              |
+| PostgreSQL                  | Source of truth for orders         |
+
+Kafka is used for asynchronous communication; it does not replace PostgreSQL.
+
+---
+
+## 3. Event Contract
+
+### Topic
+
+`shopsphere.order.events`
+
+### Event Type
+
+`order.created`
+
+### Version
+
+`1`
+
+### Message Key
+
+`orderId`
+
+Using `orderId` as the Kafka key allows future events belonging to the same order to maintain ordering within a partition.
+
+### Payload
+
+```json
+{
+  "eventId": "uuid",
+  "eventType": "order.created",
+  "eventVersion": 1,
+  "occurredAt": "2026-09-14T19:30:00.000Z",
+  "source": "shopsphere-order-service",
+  "data": {
+    "orderId": "order-uuid",
+    "customerId": "customer-uuid",
+    "totalAmount": 249.99,
+    "currency": "AED",
+    "items": [
+      {
+        "productId": "product-123",
+        "quantity": 2
+      }
+    ]
+  }
+}
+```
+
+### Data deliberately excluded
+
+Events must not contain:
+
+* Passwords
+* Payment/card information
+* Customer addresses
+* Unnecessary database fields
+* Raw database records
+
+---
+
+## 4. Kafka Configuration
+
+### Topic
+
+`shopsphere.order.events`
+
+### Partitions
+
+`1` — currently sufficient for local learning.
+
+### Replication
+
+`1` — local development only.
+
+### Consumer Group
+
+`shopsphere-order-notification`
+
+### Consumer
+
+`OrderNotificationConsumer`
+
+---
+
+## 5. Current Event Flow
+
+```text
+Customer
+   │
+   ▼
+POST /orders
+   │
+   ▼
+OrdersService
+   │
+   ├──────────────► PostgreSQL
+   │                    │
+   │              Order created
+   │
+   ▼
+OrderEventsPublisher
+   │
+   ▼
+Kafka Producer
+   │
+   ▼
+shopsphere.order.events
+   │
+   ▼
+OrderNotificationConsumer
+   │
+   ▼
+Notification Processing
+```
+
+---
+
+## 6. Test Result
+
+A real order was successfully created and the corresponding Kafka event was consumed.
+
+Observed:
+
+```text
+Received Kafka event: order.created
+
+Notification: Order <orderId> created successfully
+for customer <customerId>
+
+Kafka partition: 0
+Kafka offset: 1
+```
+
+### Result
+
+**PASS — End-to-end Kafka event publishing and consumption confirmed.**
+
+---
+
+## 7. Architectural Decision
+
+### ADR-007 — Introduce Kafka for Asynchronous Domain Events
+
+**Status:** Accepted
+
+**Decision:**
+
+ShopSphere will use Apache Kafka for asynchronous domain-event communication between the Order module and downstream consumers.
+
+The initial implementation uses the `order.created` event.
+
+**Reasoning:**
+
+Direct synchronous communication between the Order module and every downstream system would create tight coupling.
+
+Kafka allows additional consumers to be introduced without modifying the core order-creation flow.
+
+For example:
+
+```text
+order.created
+     │
+     ├── Notification
+     ├── Inventory
+     ├── Analytics
+     └── Email
+```
+
+Each consumer can evolve independently.
+
+**Trade-off:**
+
+Kafka introduces additional infrastructure and operational complexity.
+
+Event processing is also asynchronous, meaning the Order API cannot assume that downstream processing has completed immediately after publishing an event.
+
+---
+
+## 8. Important Reliability Note
+
+Current implementation follows:
+
+```text
+1. Save order to PostgreSQL
+2. Publish Kafka event
+```
+
+There is a potential failure window:
+
+```text
+PostgreSQL SUCCESS
+       ↓
+Kafka publish FAILS
+```
+
+In that situation, the order exists but the event may not be published.
+
+We intentionally accept this limitation for the first Kafka implementation because the objective is to understand basic event-driven architecture first.
+
+A future improvement will be:
+
+**Transactional Outbox Pattern**
+
+```text
+Order + Outbox Event
+        ↓
+   Same DB Transaction
+        ↓
+   Outbox Publisher
+        ↓
+      Kafka
+```
+
+This will be addressed as a later ShopSphere architecture topic rather than prematurely complicating the current implementation.
+
+---
+
+## 9. Future Kafka Events
+
+Potential future events:
+
+```text
+order.created
+order.confirmed
+order.cancelled
+order.shipped
+order.delivered
+```
+
+Potential consumers:
+
+```text
+Notification Service
+Inventory Service
+Payment Service
+Analytics Service
+Email Service
+```
+
+These should be introduced incrementally rather than creating unnecessary microservices immediately.
+
+---
+
+## 10. Sprint 11 Definition of Done
+
+* [x] Kafka running locally
+* [x] Kafka topic created
+* [x] NestJS Kafka dependency installed
+* [x] Kafka producer configured
+* [x] Kafka producer service created
+* [x] `order.created` event contract created
+* [x] Order creation integrated with event publishing
+* [x] Kafka consumer created
+* [x] Consumer group configured
+* [x] Real order event successfully consumed
+* [x] Partition and offset verified
+* [x] Architecture documented
+* [x] ADR-007 documented
+
+**Sprint 11 Status: COMPLETE**
