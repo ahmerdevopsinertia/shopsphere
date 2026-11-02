@@ -724,3 +724,14 @@ These should be introduced incrementally rather than creating unnecessary micros
 * [x] ADR-007 documented
 
 **Sprint 11 Status: COMPLETE**
+
+--- Run these commands to test the kafka implementation
+
+npm start dev
+npx ts-node src/workers/inventory.worker.ts
+npx ts-node src/workers/notification.worker.ts
+docker exec -it shopsphere-kafka \
+  /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic shopsphere.order.events \
+  --from-beginning
