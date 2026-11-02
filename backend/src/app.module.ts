@@ -32,6 +32,9 @@ import { ConfigService } from '@nestjs/config';
 import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { KafkaModule } from './infrastructure/kafka/kafka.module';
+import { AwsSnsModule } from './infrastructure/aws-sns/aws-sns.module';
+import { AwsSqsModule } from './infrastructure/aws-sqs/aws-sqs.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -63,7 +66,7 @@ import { KafkaModule } from './infrastructure/kafka/kafka.module';
             'req.headers.authorization',
             'req.headers.cookie',
             'req.headers.x-gateway-apikey',
-             'req.body.refreshToken',
+            'req.body.refreshToken',
           ],
         },
       }),
@@ -98,7 +101,10 @@ import { KafkaModule } from './infrastructure/kafka/kafka.module';
     PaymentModule,
     RefreshTokenModule,
     WishlistModule,
-    KafkaModule
+    KafkaModule,
+    AwsSnsModule,
+    AwsSqsModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController, AuthController, UsersController],
   providers: [

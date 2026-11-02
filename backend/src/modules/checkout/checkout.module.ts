@@ -8,9 +8,10 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ProductsModule } from '../products/products.module';
 import { KafkaModule } from 'src/infrastructure/kafka/kafka.module';
+import { AwsSnsModule } from '../../infrastructure/aws-sns/aws-sns.module';
 
 @Module({
-  imports:[PrismaModule, ProductsModule, InventoryModule, OrdersModule, CartModule, KafkaModule],
+  imports:[PrismaModule, ProductsModule, InventoryModule, OrdersModule, CartModule, KafkaModule, AwsSnsModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, CheckoutRepository],
   exports: [CheckoutRepository]

@@ -4,4 +4,4 @@ import { OrderInventoryConsumer } from '../infrastructure/kafka/order-inventory.
 @Module({
   controllers: [OrderInventoryConsumer],
 })
-export class InventoryWorkerModule {}
+export class InventoryWorkerModule { }
